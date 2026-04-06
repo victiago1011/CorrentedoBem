@@ -47,6 +47,7 @@ interface Job {
   company: string;
   location: string;
   type: string;
+  area: string;
   status: 'pending' | 'active' | 'rejected' | 'closed';
   date?: string;
   time?: string;
@@ -87,6 +88,7 @@ const MOCK_JOBS: Job[] = [
     company: 'Tech Solutions Inc.',
     location: 'Remoto / Brasil',
     type: 'Tempo Integral',
+    area: 'Tecnologia',
     status: 'pending',
     date: '12 Out, 2023',
     time: '14:30',
@@ -101,6 +103,7 @@ const MOCK_JOBS: Job[] = [
     company: 'Creative Minds Studio',
     location: 'São Paulo, SP • Híbrido',
     type: 'Híbrido',
+    area: 'Tecnologia',
     status: 'pending',
     date: '11 Out, 2023',
     time: '09:15',
@@ -114,6 +117,7 @@ const MOCK_JOBS: Job[] = [
     company: 'Varejo Global S.A.',
     location: 'Rio de Janeiro, RJ • Presencial',
     type: 'Presencial',
+    area: 'Outros Serviços',
     status: 'pending',
     date: '10 Out, 2023',
     time: '17:45',
@@ -127,6 +131,7 @@ const MOCK_JOBS: Job[] = [
     company: 'Fintech Inovadora',
     location: 'Remoto • PJ',
     type: 'PJ',
+    area: 'Finanças',
     status: 'pending',
     date: '10 Out, 2023',
     time: '11:20',
@@ -269,6 +274,19 @@ export default function Dashboard() {
   const [talentCategory, setTalentCategory] = useState('Todos os Talentos');
   const [jobSearch, setJobSearch] = useState('');
   const [jobCategory, setJobCategory] = useState('Todas as Vagas');
+  const [showToast, setShowToast] = useState<string | null>(null);
+  const [settings, setSettings] = useState<{
+    id?: number;
+    platform_name: string;
+    contact_email: string;
+    manual_approval: boolean;
+    auto_notifications: boolean;
+  }>({
+    platform_name: 'HumanConnect',
+    contact_email: 'contato@humanconnect.com.br',
+    manual_approval: true,
+    auto_notifications: true
+  });
 
   const [confirmAction, setConfirmAction] = useState<{
     type: 'approve' | 'reject' | 'delete' | 'edit';
@@ -281,15 +299,17 @@ export default function Dashboard() {
   const fetchData = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const [jobsRes, candidatesRes, historyRes] = await Promise.all([
+      const [jobsRes, candidatesRes, historyRes, settingsRes] = await Promise.all([
         supabase.from('jobs').select('*').order('created_at', { ascending: false }),
         supabase.from('candidates').select('*').order('created_at', { ascending: false }),
-        supabase.from('history').select('*').order('created_at', { ascending: false })
+        supabase.from('history').select('*').order('created_at', { ascending: false }),
+        supabase.from('settings').select('*').maybeSingle()
       ]);
 
       if (jobsRes.data) setJobs(jobsRes.data);
       if (candidatesRes.data) setCandidates(candidatesRes.data);
       if (historyRes.data) setHistory(historyRes.data);
+      if (settingsRes.data) setSettings(settingsRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -430,6 +450,7 @@ export default function Dashboard() {
       company: newJob.company || 'Empresa',
       location: newJob.location || 'Remoto',
       type: newJob.type || 'Tempo Integral',
+      area: newJob.area || 'Outros Serviços',
       status: 'active',
       salary: newJob.salary || 'A combinar',
       description: newJob.description || '',
@@ -463,6 +484,7 @@ export default function Dashboard() {
         company: updatedJob.company,
         location: updatedJob.location,
         type: updatedJob.type,
+        area: updatedJob.area,
         salary: updatedJob.salary,
         description: updatedJob.description,
         requirements: updatedJob.requirements,
@@ -535,6 +557,41 @@ export default function Dashboard() {
       if (hData) setHistory(prev => [hData, ...prev]);
     }
   }, []);
+
+  const handleSaveSettings = React.useCallback(async (formData: FormData) => {
+    const newSettings = {
+      platform_name: formData.get('platform_name') as string,
+      contact_email: formData.get('contact_email') as string,
+      manual_approval: formData.get('manual_approval') === 'on',
+      auto_notifications: formData.get('auto_notifications') === 'on',
+    };
+
+    // Se já temos um ID, usamos ele para atualizar. Se não, deixamos o banco gerar.
+    const payload = settings.id ? { id: settings.id, ...newSettings } : newSettings;
+
+    const { data, error } = await supabase
+      .from('settings')
+      .upsert(payload)
+      .select()
+      .single();
+
+    if (!error && data) {
+      setSettings(data);
+      setShowToast('Configurações salvas com sucesso!');
+      setTimeout(() => setShowToast(null), 3000);
+      
+      const historyEntry = {
+        action: 'Configurações Atualizadas',
+        details: 'As configurações globais do sistema foram atualizadas.'
+      };
+      const { data: hData } = await supabase.from('history').insert(historyEntry).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+    } else {
+      console.error('Error saving settings:', error);
+      setShowToast('Erro ao salvar configurações. Verifique se a tabela existe.');
+      setTimeout(() => setShowToast(null), 3000);
+    }
+  }, [settings.id]);
 
   return (
     <div className="min-h-screen flex">
@@ -755,7 +812,7 @@ export default function Dashboard() {
                 </header>
 
                 <nav className="flex overflow-x-auto gap-3 pb-2 no-scrollbar">
-                  {['Todas as Vagas', 'Tempo Integral', 'Meio Período', 'PJ / Freelance'].map((cat) => (
+                  {['Todas as Vagas', 'Tecnologia', 'Saúde', 'Finanças', 'Engenharia', 'Outros Serviços'].map((cat) => (
                     <button 
                       key={cat}
                       onClick={() => setJobCategory(cat)}
@@ -769,52 +826,85 @@ export default function Dashboard() {
                   ))}
                 </nav>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {jobs
-                    .filter(j => j.status === 'active')
-                    .filter(j => jobCategory === 'Todas as Vagas' || j.type === jobCategory)
-                    .filter(j => j.title.toLowerCase().includes(jobSearch.toLowerCase()) || j.company.toLowerCase().includes(jobSearch.toLowerCase()))
-                    .map((job) => (
-                    <div key={job.id} className="bg-white p-6 rounded-2xl shadow-sm border border-outline-variant/10 hover:shadow-md transition-all group">
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                          <Briefcase className="w-6 h-6" />
-                        </div>
-                        <button 
-                          onClick={() => setConfirmAction({ type: 'delete', target: 'job', id: job.id })}
-                          className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                        >
-                          <XCircle className="w-5 h-5" />
-                        </button>
-                      </div>
-                      <h3 className="font-bold text-lg mb-1">{job.title}</h3>
-                      <p className="text-primary font-semibold text-sm mb-3">{job.company}</p>
-                      <div className="space-y-2 mb-6">
-                        <div className="flex items-center gap-2 text-xs text-on-surface-variant">
-                          <MapPin className="w-3 h-3" />
-                          {job.location}
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-on-surface-variant">
-                          <Clock className="w-3 h-3" />
-                          {job.type}
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-center pt-4 border-t border-outline-variant/10">
-                        <span className="text-xs font-bold text-tertiary uppercase">ATIVA</span>
-                        <button 
-                          onClick={() => setEditingJob(job)}
-                          className="text-xs font-bold text-primary hover:underline"
-                        >
-                          Editar
-                        </button>
+                <div className="flex flex-col lg:flex-row gap-12">
+                  <aside className="w-full lg:w-72 space-y-10">
+                    <div>
+                      <h3 className="font-headline font-bold text-lg mb-6">Tipo de Contratação</h3>
+                      <div className="space-y-4">
+                        {['Tempo Integral', 'Meio Período', 'PJ / Freelance', 'Híbrido', 'Remoto'].map(d => (
+                          <label key={d} className="flex items-center gap-3 cursor-pointer group">
+                            <input type="checkbox" className="rounded border-outline-variant text-primary focus:ring-primary w-5 h-5" />
+                            <span className="text-on-surface-variant group-hover:text-on-surface transition-colors font-medium">{d}</span>
+                          </label>
+                        ))}
                       </div>
                     </div>
-                  ))}
-                  {jobs.filter(j => j.status === 'active').length === 0 && (
-                    <div className="col-span-full py-12 text-center text-on-surface-variant">
-                      Nenhuma vaga ativa na galeria.
+                    <div>
+                      <h3 className="font-headline font-bold text-lg mb-6">Nível de Experiência</h3>
+                      <div className="space-y-4">
+                        {['Estágio', 'Júnior', 'Pleno', 'Sênior', 'Especialista'].map(d => (
+                          <label key={d} className="flex items-center gap-3 cursor-pointer group">
+                            <input type="checkbox" className="rounded border-outline-variant text-primary focus:ring-primary w-5 h-5" />
+                            <span className="text-on-surface-variant group-hover:text-on-surface transition-colors font-medium">{d}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  )}
+                    <div className="pt-6">
+                      <button className="w-full py-4 bg-primary text-on-primary rounded-2xl font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
+                        <Search className="w-4 h-4" />
+                        Filtrar Vagas
+                      </button>
+                    </div>
+                  </aside>
+
+                  <div className="flex-1 grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+                    {jobs
+                      .filter(j => j.status === 'active')
+                      .filter(j => jobCategory === 'Todas as Vagas' || j.area === jobCategory)
+                      .filter(j => j.title.toLowerCase().includes(jobSearch.toLowerCase()) || j.company.toLowerCase().includes(jobSearch.toLowerCase()))
+                      .map((job) => (
+                      <div key={job.id} className="bg-white p-6 rounded-2xl shadow-sm border border-outline-variant/10 hover:shadow-md transition-all group flex flex-col">
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                            <Briefcase className="w-6 h-6" />
+                          </div>
+                          <button 
+                            onClick={() => setConfirmAction({ type: 'delete', target: 'job', id: job.id })}
+                            className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                          >
+                            <XCircle className="w-5 h-5" />
+                          </button>
+                        </div>
+                        <h3 className="font-bold text-lg mb-1">{job.title}</h3>
+                        <p className="text-primary font-semibold text-sm mb-3">{job.company}</p>
+                        <div className="space-y-2 mb-4">
+                          <div className="flex items-center gap-2 text-xs text-on-surface-variant">
+                            <MapPin className="w-3 h-3" />
+                            {job.location}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-on-surface-variant">
+                            <Clock className="w-3 h-3" />
+                            {job.type} • {job.area}
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center pt-4 border-t border-outline-variant/10 mt-auto">
+                          <span className="text-xs font-bold text-tertiary uppercase">ATIVA</span>
+                          <button 
+                            onClick={() => setEditingJob(job)}
+                            className="text-xs font-bold text-primary hover:underline"
+                          >
+                            Editar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {jobs.filter(j => j.status === 'active').length === 0 && (
+                      <div className="col-span-full py-12 text-center text-on-surface-variant">
+                        Nenhuma vaga ativa na galeria.
+                      </div>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -957,7 +1047,7 @@ export default function Dashboard() {
                 </header>
 
                 <nav className="flex overflow-x-auto gap-4 pb-4 no-scrollbar">
-                  {['Todos os Talentos', 'Tecnologia', 'Saúde', 'Finanças', 'Engenharia & Arquitetura', 'Autônomos'].map((cat) => (
+                  {['Todos os Talentos', 'Tecnologia', 'Saúde', 'Finanças', 'Engenharia', 'Outros Serviços'].map((cat) => (
                     <button 
                       key={cat}
                       onClick={() => setTalentCategory(cat)}
@@ -995,15 +1085,21 @@ export default function Dashboard() {
                         ))}
                       </div>
                     </div>
+                    <div className="pt-6">
+                      <button className="w-full py-4 bg-primary text-on-primary rounded-2xl font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
+                        <Search className="w-4 h-4" />
+                        Filtrar Talentos
+                      </button>
+                    </div>
                   </aside>
 
-                  <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                     {candidates
                       .filter(c => c.status === 'approved')
                       .filter(c => talentCategory === 'Todos os Talentos' || c.area.includes(talentCategory) || (talentCategory === 'Tecnologia' && c.area.includes('Desenvolvimento')))
                       .filter(c => c.name.toLowerCase().includes(talentSearch.toLowerCase()) || c.skills.some(s => s.toLowerCase().includes(talentSearch.toLowerCase())))
                       .map((cand) => (
-                      <div key={cand.id} className="bg-surface-container-low rounded-3xl p-6 hover:bg-white transition-all duration-300 border border-outline-variant/10 group relative">
+                      <div key={cand.id} className="bg-surface-container-low rounded-3xl p-6 hover:bg-white transition-all duration-300 border border-outline-variant/10 group relative flex flex-col">
                         <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button 
                             onClick={() => setEditingCandidate(cand)}
@@ -1018,25 +1114,29 @@ export default function Dashboard() {
                             <XCircle className="w-4 h-4" />
                           </button>
                         </div>
-                        <div className="flex gap-4 mb-6">
-                          <div className="relative w-20 h-20 rounded-full overflow-hidden shadow-md">
+                        <div className="flex gap-4 mb-4">
+                          <div className="relative w-16 h-16 rounded-full overflow-hidden shadow-md shrink-0">
                             <Image src={cand.image} alt={cand.name} fill className="object-cover" referrerPolicy="no-referrer" />
                           </div>
                           <div>
                             <span className="px-2 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold uppercase tracking-widest">{cand.area}</span>
-                            <h4 className="text-xl font-bold mt-1 font-headline">{cand.name}</h4>
-                            <p className="text-primary text-sm font-medium">{cand.role}</p>
+                            <h4 className="text-lg font-bold mt-1 font-headline leading-tight">{cand.name}</h4>
+                            <p className="text-primary text-xs font-medium">{cand.role}</p>
                           </div>
                         </div>
-                        <p className="text-on-surface-variant text-sm mb-6 leading-relaxed">{cand.summary}</p>
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center text-on-surface-variant text-xs gap-1 font-medium">
+                        <p className="text-on-surface-variant text-xs mb-4 leading-relaxed line-clamp-3">{cand.summary}</p>
+                        <div className="flex justify-between items-center mt-auto pt-4 border-t border-outline-variant/5">
+                          <div className="flex items-center text-on-surface-variant text-[10px] gap-1 font-medium">
                             <MapPin className="w-3 h-3" />
                             {cand.location}
                           </div>
                           <button 
-                            onClick={() => setSelectedCandidate(cand)}
-                            className="text-primary font-bold text-sm hover:underline decoration-2 underline-offset-4"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setSelectedCandidate(cand);
+                            }}
+                            className="text-primary font-bold text-xs hover:underline decoration-2 underline-offset-4"
                           >
                             Ver Currículo
                           </button>
@@ -1064,7 +1164,10 @@ export default function Dashboard() {
                   <p className="text-on-surface-variant mt-1">Gerencie as preferências globais da plataforma HumanConnect.</p>
                 </header>
 
-                <div className="grid grid-cols-1 gap-6">
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSaveSettings(new FormData(e.currentTarget));
+                }} className="grid grid-cols-1 gap-6">
                   <section className="bg-white p-8 rounded-3xl border border-outline-variant/10 shadow-sm space-y-6">
                     <h2 className="text-lg font-bold flex items-center gap-2">
                       <Settings className="w-5 h-5 text-primary" />
@@ -1073,11 +1176,11 @@ export default function Dashboard() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-on-surface-variant uppercase">Nome da Plataforma</label>
-                        <input defaultValue="HumanConnect" className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+                        <input name="platform_name" defaultValue={settings.platform_name} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
                       </div>
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-on-surface-variant uppercase">E-mail de Contato</label>
-                        <input defaultValue="contato@humanconnect.com.br" className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+                        <input name="contact_email" defaultValue={settings.contact_email} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
                       </div>
                     </div>
                   </section>
@@ -1089,14 +1192,14 @@ export default function Dashboard() {
                     </h2>
                     <div className="space-y-4">
                       <label className="flex items-center gap-3 cursor-pointer group">
-                        <input type="checkbox" defaultChecked className="rounded border-outline-variant text-primary focus:ring-primary w-5 h-5" />
+                        <input type="checkbox" name="manual_approval" defaultChecked={settings.manual_approval} className="rounded border-outline-variant text-primary focus:ring-primary w-5 h-5" />
                         <div>
                           <p className="font-bold text-on-surface">Aprovação Manual Obrigatória</p>
                           <p className="text-xs text-on-surface-variant">Novas vagas e currículos devem ser aprovados por um administrador.</p>
                         </div>
                       </label>
                       <label className="flex items-center gap-3 cursor-pointer group">
-                        <input type="checkbox" defaultChecked className="rounded border-outline-variant text-primary focus:ring-primary w-5 h-5" />
+                        <input type="checkbox" name="auto_notifications" defaultChecked={settings.auto_notifications} className="rounded border-outline-variant text-primary focus:ring-primary w-5 h-5" />
                         <div>
                           <p className="font-bold text-on-surface">Notificações Automáticas</p>
                           <p className="text-xs text-on-surface-variant">Enviar e-mails automáticos após aprovação ou recusa.</p>
@@ -1106,11 +1209,14 @@ export default function Dashboard() {
                   </section>
 
                   <div className="flex justify-end">
-                    <button className="px-8 py-4 bg-primary text-on-primary rounded-2xl font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-all">
+                    <button 
+                      type="submit"
+                      className="px-8 py-4 bg-primary text-on-primary rounded-2xl font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-all"
+                    >
                       Salvar Configurações
                     </button>
                   </div>
-                </div>
+                </form>
               </motion.div>
             )}
           </div>
@@ -1136,6 +1242,7 @@ export default function Dashboard() {
                     company: formData.get('company') as string,
                     location: formData.get('location') as string,
                     type: formData.get('type') as string,
+                    area: formData.get('area') as string,
                     salary: formData.get('salary') as string,
                     description: formData.get('description') as string,
                     requirements: (formData.get('requirements') as string).split('\n').filter(r => r.trim()),
@@ -1151,17 +1258,31 @@ export default function Dashboard() {
                       <input name="company" required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Nome da empresa" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-on-surface-variant uppercase">Localização</label>
                       <input name="location" required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Ex: Remoto" />
                     </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-on-surface-variant uppercase">Área / Setor</label>
+                      <select name="area" className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none">
+                        <option>Tecnologia</option>
+                        <option>Saúde</option>
+                        <option>Finanças</option>
+                        <option>Engenharia</option>
+                        <option>Outros Serviços</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-on-surface-variant uppercase">Tipo</label>
                       <select name="type" className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none">
                         <option>Tempo Integral</option>
                         <option>Meio Período</option>
                         <option>PJ / Freelance</option>
+                        <option>Híbrido</option>
+                        <option>Remoto</option>
                       </select>
                     </div>
                     <div className="space-y-1">
@@ -1290,7 +1411,7 @@ export default function Dashboard() {
               </motion.aside>
             )}
 
-            {(activeView === 'curriculos' && selectedCandidate) && (
+            {(selectedCandidate && (activeView === 'curriculos' || activeView === 'galeria')) && (
               <motion.aside 
                 key={`candidate-${selectedCandidate.id}`}
                 initial={{ x: 450 }}
@@ -1396,6 +1517,7 @@ export default function Dashboard() {
                 company: formData.get('company') as string,
                 location: formData.get('location') as string,
                 type: formData.get('type') as string,
+                area: formData.get('area') as string,
                 salary: formData.get('salary') as string,
                 description: formData.get('description') as string,
                 requirements: (formData.get('requirements') as string).split('\n').filter(r => r.trim()),
@@ -1412,17 +1534,31 @@ export default function Dashboard() {
                   <input name="company" defaultValue={editingJob.company} required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-on-surface-variant uppercase">Localização</label>
                   <input name="location" defaultValue={editingJob.location} required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
                 </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Área / Setor</label>
+                  <select name="area" defaultValue={editingJob.area} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none">
+                    <option>Tecnologia</option>
+                    <option>Saúde</option>
+                    <option>Finanças</option>
+                    <option>Engenharia</option>
+                    <option>Outros Serviços</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-on-surface-variant uppercase">Tipo</label>
                   <select name="type" defaultValue={editingJob.type} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none">
                     <option>Tempo Integral</option>
                     <option>Meio Período</option>
                     <option>PJ / Freelance</option>
+                    <option>Híbrido</option>
+                    <option>Remoto</option>
                   </select>
                 </div>
                 <div className="space-y-1">
@@ -1580,6 +1716,21 @@ export default function Dashboard() {
       <div className="fixed bottom-0 right-0 -z-10 opacity-5 pointer-events-none transform translate-x-1/4 translate-y-1/4 select-none">
         <span className="text-[25rem] font-black text-primary leading-none">CB</span>
       </div>
+
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {showToast && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] bg-on-surface text-surface px-6 py-3 rounded-2xl shadow-2xl font-bold flex items-center gap-3"
+          >
+            <CheckCircle2 className="w-5 h-5 text-tertiary" />
+            {showToast}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
