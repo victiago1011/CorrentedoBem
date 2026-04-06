@@ -1,0 +1,742 @@
+'use client';
+
+import React, { useState } from 'react';
+import { 
+  LayoutGrid, 
+  FileText, 
+  History, 
+  Settings, 
+  Search, 
+  Bell, 
+  HelpCircle, 
+  Briefcase, 
+  Palette, 
+  Megaphone, 
+  DollarSign,
+  CheckCircle2,
+  XCircle,
+  X,
+  Mail,
+  ShieldCheck,
+  ChevronLeft,
+  ChevronRight,
+  Verified,
+  ExternalLink,
+  Share2,
+  Bookmark,
+  MapPin,
+  Clock,
+  Zap,
+  HeartHandshake
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { cn } from '@/lib/utils';
+import Image from 'next/image';
+
+// --- Types ---
+
+type View = 'vagas' | 'curriculos' | 'historico' | 'configuracoes' | 'galeria';
+
+interface Job {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  type: string;
+  date: string;
+  time: string;
+  salary: string;
+  description: string;
+  requirements: string[];
+  icon: React.ReactNode;
+  verified?: boolean;
+}
+
+interface Candidate {
+  id: string;
+  name: string;
+  location: string;
+  area: string;
+  date: string;
+  status: 'Pendente' | 'Aprovado' | 'Recusado';
+  role: string;
+  summary: string;
+  skills: string[];
+  image: string;
+  verified?: boolean;
+}
+
+// --- Mock Data ---
+
+const MOCK_JOBS: Job[] = [
+  {
+    id: '1',
+    title: 'Desenvolvedor Frontend Sênior',
+    company: 'Tech Solutions Inc.',
+    location: 'Remoto / Brasil',
+    type: 'Tempo Integral',
+    date: '12 Out, 2023',
+    time: '14:30',
+    salary: 'R$ 12k - 16k',
+    description: 'Buscamos uma pessoa apaixonada por interfaces modernas e performance. Você será responsável por liderar o desenvolvimento de nossos novos dashboards administrativos utilizando React, Tailwind CSS e integração com APIs RESTful.',
+    requirements: ['5+ anos de experiência com React.', 'Domínio de TypeScript e Tailwind CSS.', 'Experiência com testes unitários (Jest/Cypress).'],
+    icon: <Briefcase className="w-5 h-5" />,
+    verified: true
+  },
+  {
+    id: '2',
+    title: 'UI/UX Designer Pleno',
+    company: 'Creative Minds Studio',
+    location: 'São Paulo, SP • Híbrido',
+    type: 'Híbrido',
+    date: '11 Out, 2023',
+    time: '09:15',
+    salary: 'R$ 8k - 11k',
+    description: 'Responsável por criar experiências incríveis para nossos usuários mobile e web.',
+    requirements: ['3+ anos de experiência.', 'Figma expert.', 'Conhecimento em Design Systems.'],
+    icon: <Palette className="w-5 h-5" />
+  },
+  {
+    id: '3',
+    title: 'Analista de Marketing Digital',
+    company: 'Varejo Global S.A.',
+    location: 'Rio de Janeiro, RJ • Presencial',
+    type: 'Presencial',
+    date: '10 Out, 2023',
+    time: '17:45',
+    salary: 'R$ 5k - 7k',
+    description: 'Foco em performance e crescimento orgânico.',
+    requirements: ['Experiência com SEO/SEM.', 'Análise de dados.', 'Gestão de redes sociais.'],
+    icon: <Megaphone className="w-5 h-5" />
+  },
+  {
+    id: '4',
+    title: 'Gerente de Contas',
+    company: 'Fintech Inovadora',
+    location: 'Remoto • PJ',
+    type: 'PJ',
+    date: '10 Out, 2023',
+    time: '11:20',
+    salary: 'R$ 10k + comissão',
+    description: 'Gestão de carteira de clientes B2B.',
+    requirements: ['Experiência em vendas consultivas.', 'Networking no setor financeiro.'],
+    icon: <DollarSign className="w-5 h-5" />
+  }
+];
+
+const MOCK_CANDIDATES: Candidate[] = [
+  {
+    id: '1',
+    name: 'Ana Paula Castro',
+    location: 'São Paulo, SP',
+    area: 'Desenvolvimento Web',
+    date: '12 Out, 2023',
+    status: 'Pendente',
+    role: 'Desenvolvedora Full Stack Pleno',
+    summary: 'Desenvolvedora com mais de 5 anos de experiência em tecnologias JavaScript (React, Node.js). Especialista em criar arquiteturas escaláveis e foco total em experiência do usuário e acessibilidade.',
+    skills: ['React & Next.js', 'TypeScript', 'Node.js (API Rest)', 'PostgreSQL', 'UI Design Systems', 'CI/CD Pipeline'],
+    image: 'https://picsum.photos/seed/ana/200/200',
+    verified: true
+  },
+  {
+    id: '2',
+    name: 'Bruno Lima',
+    location: 'Rio de Janeiro, RJ',
+    area: 'UI/UX Design',
+    date: '11 Out, 2023',
+    status: 'Pendente',
+    role: 'Product Designer',
+    summary: 'Especialista em interfaces intuitivas e centradas no usuário.',
+    skills: ['Figma', 'Prototipagem', 'User Research'],
+    image: 'https://picsum.photos/seed/bruno/200/200'
+  },
+  {
+    id: '3',
+    name: 'Carla Mendes',
+    location: 'Belo Horizonte, MG',
+    area: 'Marketing Digital',
+    date: '10 Out, 2023',
+    status: 'Pendente',
+    role: 'Growth Hacker',
+    summary: 'Focada em métricas e escala de negócios digitais.',
+    skills: ['SEO', 'Google Ads', 'Copywriting'],
+    image: 'https://picsum.photos/seed/carla/200/200'
+  }
+];
+
+// --- Components ---
+
+const Sidebar = ({ activeView, setView }: { activeView: View, setView: (v: View) => void }) => (
+  <aside className="w-64 h-screen fixed left-0 top-0 bg-white border-r border-outline-variant/20 flex flex-col py-6 z-50">
+    <div className="px-6 mb-10 flex items-center gap-3">
+      <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-on-primary shadow-lg shadow-primary/20">
+        <HeartHandshake className="w-6 h-6" />
+      </div>
+      <div>
+        <h2 className="text-xl font-bold text-primary leading-none font-headline">Corrente do Bem</h2>
+        <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mt-1">Painel Administrativo</p>
+      </div>
+    </div>
+
+    <nav className="flex-1 px-4 space-y-2">
+      {[
+        { id: 'vagas', label: 'Vagas Pendentes', icon: <Clock className="w-5 h-5" /> },
+        { id: 'curriculos', label: 'Currículos Pendentes', icon: <FileText className="w-5 h-5" /> },
+        { id: 'historico', label: 'Histórico', icon: <History className="w-5 h-5" /> },
+        { id: 'configuracoes', label: 'Configurações', icon: <Settings className="w-5 h-5" /> },
+        { id: 'galeria', label: 'Galeria de Talentos', icon: <LayoutGrid className="w-5 h-5" /> },
+      ].map((item) => (
+        <button
+          key={item.id}
+          onClick={() => setView(item.id as View)}
+          className={cn(
+            "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
+            activeView === item.id 
+              ? "bg-primary/5 text-primary font-bold border-r-4 border-primary" 
+              : "text-on-surface-variant hover:bg-surface-container-low"
+          )}
+        >
+          <span className={cn("transition-transform group-hover:scale-110", activeView === item.id && "text-primary")}>
+            {item.icon}
+          </span>
+          <span className="text-sm">{item.label}</span>
+        </button>
+      ))}
+    </nav>
+
+    <div className="px-6 mt-auto">
+      <div className="p-4 bg-surface-container-low rounded-2xl flex items-center gap-3 border border-outline-variant/10">
+        <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-sm">
+          <Image 
+            src="https://picsum.photos/seed/admin/100/100" 
+            alt="Admin" 
+            fill 
+            className="object-cover"
+            referrerPolicy="no-referrer"
+          />
+        </div>
+        <div className="overflow-hidden">
+          <p className="text-sm font-bold truncate">Ricardo Silva</p>
+          <p className="text-xs text-on-surface-variant truncate">Super Admin</p>
+        </div>
+      </div>
+    </div>
+  </aside>
+);
+
+const Header = () => (
+  <header className="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 z-40 bg-white/80 backdrop-blur-md border-b border-outline-variant/10 flex justify-between items-center px-8">
+    <div className="flex items-center w-full max-w-md">
+      <div className="relative w-full">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-outline w-4 h-4" />
+        <input 
+          type="text" 
+          placeholder="Buscar vagas ou empresas..." 
+          className="w-full pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-full text-sm focus:ring-2 focus:ring-primary/20 transition-all"
+        />
+      </div>
+    </div>
+    <div className="flex items-center gap-6">
+      <button className="relative p-2 text-on-surface-variant hover:text-primary transition-colors rounded-full hover:bg-surface-container-low">
+        <Bell className="w-5 h-5" />
+        <span className="absolute top-2 right-2 w-2 h-2 bg-secondary rounded-full border-2 border-white"></span>
+      </button>
+      <div className="h-8 w-[1px] bg-outline-variant/30"></div>
+      <button className="flex items-center gap-2 px-4 py-2 rounded-full hover:bg-surface-container-low transition-all group">
+        <span className="text-sm font-semibold text-primary">Painel Geral</span>
+        <LayoutGrid className="w-5 h-5 text-primary group-hover:rotate-90 transition-transform duration-300" />
+      </button>
+    </div>
+  </header>
+);
+
+export default function Dashboard() {
+  const [activeView, setView] = useState<View>('vagas');
+  const [selectedJob, setSelectedJob] = useState<Job | null>(MOCK_JOBS[0]);
+  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(MOCK_CANDIDATES[0]);
+
+  return (
+    <div className="min-h-screen flex">
+      <Sidebar activeView={activeView} setView={setView} />
+      
+      <main className="ml-64 pt-16 flex-1 flex flex-col">
+        <Header />
+        
+        <div className="flex-1 flex overflow-hidden">
+          {/* Content Area */}
+          <div className="flex-1 p-8 overflow-y-auto">
+            {activeView === 'vagas' && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-8"
+              >
+                <header className="flex justify-between items-end">
+                  <div>
+                    <h1 className="text-3xl font-extrabold text-primary tracking-tight font-headline">Vagas Pendentes</h1>
+                    <p className="text-on-surface-variant mt-1">Gerencie e analise as solicitações de novas vagas na plataforma.</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="px-4 py-2 bg-tertiary-fixed text-on-tertiary-fixed font-bold rounded-full text-xs flex items-center gap-2 shadow-sm">
+                      <Zap className="w-4 h-4 fill-current" />
+                      12 Pendentes Hoje
+                    </span>
+                  </div>
+                </header>
+
+                <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-outline-variant/10">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-surface-container-low border-b border-outline-variant/10">
+                      <tr>
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Vaga / Cargo</th>
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Empresa</th>
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Data de Envio</th>
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-outline-variant/10">
+                      {MOCK_JOBS.map((job) => (
+                        <tr 
+                          key={job.id}
+                          onClick={() => setSelectedJob(job)}
+                          className={cn(
+                            "hover:bg-primary/5 transition-all cursor-pointer group",
+                            selectedJob?.id === job.id ? "bg-primary/5 border-l-4 border-primary" : "border-l-4 border-transparent"
+                          )}
+                        >
+                          <td className="px-6 py-5">
+                            <div className="flex items-center gap-3">
+                              <div className={cn(
+                                "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                                selectedJob?.id === job.id ? "bg-primary text-on-primary" : "bg-surface-container text-outline group-hover:bg-primary/20 group-hover:text-primary"
+                              )}>
+                                {job.icon}
+                              </div>
+                              <div>
+                                <p className={cn("font-bold", selectedJob?.id === job.id ? "text-primary" : "text-on-surface")}>{job.title}</p>
+                                <p className="text-xs text-on-surface-variant">{job.location} • {job.type}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-5">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{job.company}</span>
+                              {job.verified && <Verified className="w-4 h-4 text-tertiary fill-current" />}
+                            </div>
+                          </td>
+                          <td className="px-6 py-5 text-sm text-on-surface-variant">
+                            {job.date} • {job.time}
+                          </td>
+                          <td className="px-6 py-5 text-right">
+                            <button className={cn(
+                              "px-4 py-2 text-xs font-bold rounded-xl transition-all active:scale-95",
+                              selectedJob?.id === job.id 
+                                ? "bg-primary text-on-primary shadow-lg shadow-primary/20" 
+                                : "bg-surface-container-high text-on-surface hover:bg-primary/10 hover:text-primary"
+                            )}>
+                              Analisar
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <footer className="p-6 bg-surface-container-low border-t border-outline-variant/10 flex justify-between items-center text-sm text-on-surface-variant">
+                    <span>Exibindo 4 de 24 vagas pendentes</span>
+                    <div className="flex gap-2">
+                      {[1, 2, 3].map(p => (
+                        <button key={p} className={cn(
+                          "w-8 h-8 flex items-center justify-center rounded-lg border transition-all font-bold",
+                          p === 1 ? "bg-primary text-on-primary border-primary" : "bg-white border-outline-variant/30 hover:bg-primary/5"
+                        )}>{p}</button>
+                      ))}
+                    </div>
+                  </footer>
+                </div>
+              </motion.div>
+            )}
+
+            {activeView === 'curriculos' && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-8"
+              >
+                <header className="flex justify-between items-end">
+                  <div>
+                    <span className="text-secondary font-bold text-sm tracking-widest uppercase mb-2 block">Central de Talentos</span>
+                    <h1 className="text-4xl font-extrabold text-on-surface tracking-tight font-headline">
+                      Currículos <span className="text-primary italic">Pendentes</span>
+                    </h1>
+                    <p className="text-on-surface-variant mt-2 max-w-xl">Analise e aprove novos candidatos para a rede. Cada currículo é uma oportunidade de transformar uma carreira.</p>
+                  </div>
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border-b-4 border-tertiary-fixed flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-tertiary-fixed/20 flex items-center justify-center text-tertiary">
+                      <Search className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-on-surface leading-tight">24</p>
+                      <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Aguardando Revisão</p>
+                    </div>
+                  </div>
+                </header>
+
+                <div className="bg-white rounded-2xl p-2 shadow-sm border border-outline-variant/10">
+                  <table className="w-full text-left border-separate border-spacing-y-2 px-2">
+                    <thead className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">
+                      <tr>
+                        <th className="px-4 py-4">Candidato</th>
+                        <th className="px-4 py-4">Área</th>
+                        <th className="px-4 py-4">Data</th>
+                        <th className="px-4 py-4">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-sm">
+                      {MOCK_CANDIDATES.map((c) => (
+                        <tr 
+                          key={c.id}
+                          onClick={() => setSelectedCandidate(c)}
+                          className={cn(
+                            "group hover:bg-surface-container-low transition-all cursor-pointer rounded-xl",
+                            selectedCandidate?.id === c.id ? "bg-surface-container-low" : "bg-surface-container-low/30"
+                          )}
+                        >
+                          <td className="px-4 py-4 rounded-l-xl">
+                            <div className="flex items-center gap-3">
+                              <div className="relative w-10 h-10 rounded-lg overflow-hidden shadow-sm">
+                                <Image src={c.image} alt={c.name} fill className="object-cover" referrerPolicy="no-referrer" />
+                              </div>
+                              <div>
+                                <p className="font-bold text-on-surface">{c.name}</p>
+                                <p className="text-[11px] text-on-surface-variant">{c.location}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-semibold">{c.area}</span>
+                          </td>
+                          <td className="px-4 py-4 text-on-surface-variant font-medium">{c.date}</td>
+                          <td className="px-4 py-4 rounded-r-xl">
+                            <div className="flex items-center gap-1 text-secondary font-bold text-xs italic uppercase">
+                              <span className="w-2 h-2 rounded-full bg-secondary"></span>
+                              {c.status}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+
+            {activeView === 'galeria' && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="space-y-12"
+              >
+                <header className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+                  <div className="max-w-2xl">
+                    <h1 className="text-5xl font-extrabold tracking-tight text-primary mb-4 font-headline">Galeria de Talentos</h1>
+                    <p className="text-on-surface-variant text-lg">Conecte-se com profissionais excepcionais prontos para transformar sua empresa com dignidade e competência.</p>
+                  </div>
+                  <div className="w-full md:w-96">
+                    <div className="relative">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-outline w-5 h-5" />
+                      <input 
+                        type="text" 
+                        placeholder="Buscar por nome ou competência..." 
+                        className="w-full pl-12 pr-4 py-4 rounded-2xl border-none bg-surface-container-highest focus:bg-white focus:ring-2 focus:ring-primary/40 transition-all shadow-sm"
+                      />
+                    </div>
+                  </div>
+                </header>
+
+                <nav className="flex overflow-x-auto gap-4 pb-4 no-scrollbar">
+                  {['Todos os Talentos', 'Tecnologia', 'Saúde', 'Finanças', 'Engenharia & Arquitetura', 'Autônomos'].map((cat, i) => (
+                    <button 
+                      key={cat}
+                      className={cn(
+                        "px-6 py-3 rounded-full font-semibold whitespace-nowrap transition-all",
+                        i === 0 ? "bg-primary text-on-primary shadow-lg shadow-primary/20" : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
+                      )}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </nav>
+
+                <div className="flex flex-col lg:flex-row gap-12">
+                  <aside className="w-full lg:w-72 space-y-10">
+                    <div>
+                      <h3 className="font-headline font-bold text-lg mb-6">Disponibilidade</h3>
+                      <div className="space-y-4">
+                        {['Imediata', 'Em 15 dias', 'Em 30 dias'].map(d => (
+                          <label key={d} className="flex items-center gap-3 cursor-pointer group">
+                            <input type="checkbox" className="rounded border-outline-variant text-primary focus:ring-primary w-5 h-5" />
+                            <span className="text-on-surface-variant group-hover:text-on-surface transition-colors font-medium">{d}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="font-headline font-bold text-lg mb-6">Localização</h3>
+                      <div className="space-y-4">
+                        {['Remoto', 'Híbrido', 'Presencial'].map(l => (
+                          <label key={l} className="flex items-center gap-3 cursor-pointer group">
+                            <input type="checkbox" defaultChecked={l === 'Remoto'} className="rounded border-outline-variant text-primary focus:ring-primary w-5 h-5" />
+                            <span className="text-on-surface-variant group-hover:text-on-surface transition-colors font-medium">{l}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="pt-6">
+                      <div className="relative w-full aspect-square rounded-2xl overflow-hidden shadow-lg">
+                        <Image src="https://picsum.photos/seed/featured/400/400" alt="Destaque" fill className="object-cover" referrerPolicy="no-referrer" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-6">
+                          <p className="text-white font-bold text-lg">Destaque do Mês</p>
+                        </div>
+                      </div>
+                      <div className="mt-4 p-4 rounded-2xl bg-secondary-container/10 border-l-4 border-secondary">
+                        <p className="text-secondary font-bold text-xs uppercase tracking-wider">História de Sucesso</p>
+                        <p className="text-on-surface-variant text-sm mt-1 italic leading-relaxed">&quot;Encontrei minha oportunidade ideal através da HumanConnect em menos de 2 semanas.&quot;</p>
+                      </div>
+                    </div>
+                  </aside>
+
+                  <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Featured Talent Card */}
+                    <div className="col-span-1 md:col-span-2 bg-surface-container-low rounded-3xl p-8 hover:bg-white transition-all duration-300 border border-outline-variant/10 group flex flex-col md:flex-row gap-8">
+                      <div className="relative w-32 h-32 md:w-48 md:h-48 rounded-2xl overflow-hidden shrink-0 shadow-xl group-hover:scale-105 transition-transform duration-500">
+                        <Image src="https://picsum.photos/seed/ricardo/400/400" alt="Ricardo" fill className="object-cover" referrerPolicy="no-referrer" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="px-3 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold uppercase tracking-widest">Tecnologia</span>
+                          <Bookmark className="w-5 h-5 text-outline hover:text-secondary cursor-pointer transition-colors" />
+                        </div>
+                        <h3 className="text-3xl font-bold text-on-surface mb-1 font-headline">Ricardo Silva</h3>
+                        <p className="text-primary font-semibold mb-4 text-lg">Desenvolvedor Full Stack Sênior</p>
+                        <p className="text-on-surface-variant leading-relaxed mb-6">Especialista em React, Node.js e arquitetura de microsserviços. 8 anos de experiência liderando times ágeis em projetos de escala global.</p>
+                        <div className="flex flex-wrap gap-2 mb-8">
+                          {['Cloud Architecture', 'TypeScript', 'DevOps'].map(s => (
+                            <span key={s} className="px-3 py-1 bg-surface-container-highest rounded-lg text-xs font-medium text-on-surface-variant">{s}</span>
+                          ))}
+                        </div>
+                        <button className="px-8 py-3 bg-primary text-on-primary rounded-xl font-bold hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-95">Ver Perfil Completo</button>
+                      </div>
+                    </div>
+
+                    {/* Small Talent Cards */}
+                    {[1, 2].map(i => (
+                      <div key={i} className="bg-surface-container-low rounded-3xl p-6 hover:bg-white transition-all duration-300 border border-outline-variant/10">
+                        <div className="flex gap-4 mb-6">
+                          <div className="relative w-20 h-20 rounded-full overflow-hidden shadow-md">
+                            <Image src={`https://picsum.photos/seed/talent${i}/200/200`} alt="Talent" fill className="object-cover" referrerPolicy="no-referrer" />
+                          </div>
+                          <div>
+                            <span className="px-2 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold uppercase tracking-widest">Saúde</span>
+                            <h4 className="text-xl font-bold mt-1 font-headline">Dra. Beatriz Santos</h4>
+                            <p className="text-primary text-sm font-medium">Médica Intensivista</p>
+                          </div>
+                        </div>
+                        <p className="text-on-surface-variant text-sm mb-6 leading-relaxed">Gestão hospitalar e cuidado crítico com foco em humanização e eficiência operacional.</p>
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center text-on-surface-variant text-xs gap-1 font-medium">
+                            <MapPin className="w-3 h-3" />
+                            São Paulo, SP
+                          </div>
+                          <button className="text-primary font-bold text-sm hover:underline decoration-2 underline-offset-4">Ver Currículo</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </div>
+
+          {/* Right Panel (Contextual Detail) */}
+          <AnimatePresence mode="wait">
+            {(activeView === 'vagas' && selectedJob) && (
+              <motion.aside 
+                key={`job-${selectedJob.id}`}
+                initial={{ x: 450 }}
+                animate={{ x: 0 }}
+                exit={{ x: 450 }}
+                className="w-[450px] bg-white border-l border-outline-variant/10 p-8 overflow-y-auto shadow-2xl relative z-30"
+              >
+                <div className="flex justify-between items-start mb-6">
+                  <button 
+                    onClick={() => setSelectedJob(null)}
+                    className="p-2 hover:bg-surface-container rounded-full text-on-surface-variant transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                  <span className="px-3 py-1 bg-secondary-container/20 text-secondary font-bold text-[10px] uppercase tracking-wider rounded-full">Pendente</span>
+                </div>
+
+                <div className="mb-8">
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="relative w-16 h-16 rounded-2xl overflow-hidden border-4 border-surface-container shadow-sm">
+                      <Image src="https://picsum.photos/seed/company/200/200" alt="Logo" fill className="object-cover" referrerPolicy="no-referrer" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-extrabold text-on-surface leading-tight font-headline">{selectedJob.title}</h2>
+                      <p className="text-primary font-bold">{selectedJob.company}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-surface-container-low rounded-2xl border border-outline-variant/5">
+                      <p className="text-[10px] uppercase font-bold text-on-surface-variant mb-1">Localização</p>
+                      <p className="text-sm font-bold">{selectedJob.location}</p>
+                    </div>
+                    <div className="p-4 bg-surface-container-low rounded-2xl border border-outline-variant/5">
+                      <p className="text-[10px] uppercase font-bold text-on-surface-variant mb-1">Salário</p>
+                      <p className="text-sm font-bold">{selectedJob.salary}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-8 mb-10">
+                  <section>
+                    <h3 className="text-xs uppercase font-bold text-primary mb-3 flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      Descrição da Vaga
+                    </h3>
+                    <p className="text-sm text-on-surface-variant leading-relaxed">{selectedJob.description}</p>
+                  </section>
+                  <section>
+                    <h3 className="text-xs uppercase font-bold text-primary mb-3 flex items-center gap-2">
+                      <LayoutGrid className="w-4 h-4" />
+                      Requisitos
+                    </h3>
+                    <ul className="text-sm text-on-surface-variant space-y-3">
+                      {selectedJob.requirements.map((req, i) => (
+                        <li key={i} className="flex gap-3 items-start">
+                          <span className="w-1.5 h-1.5 rounded-full bg-tertiary mt-1.5 shrink-0" />
+                          {req}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                </div>
+
+                <div className="bg-surface-container-low p-6 rounded-3xl border border-outline-variant/20">
+                  <h4 className="text-sm font-bold mb-4 flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-primary" />
+                    Ações de Moderação
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-[10px] uppercase font-extrabold text-on-surface-variant mb-2 block ml-1">Justificativa da Recusa</label>
+                      <textarea 
+                        className="w-full bg-white border-outline-variant/30 rounded-2xl text-sm p-4 focus:ring-primary focus:border-primary min-h-[120px] transition-all" 
+                        placeholder="Explique o motivo para que a empresa possa corrigir a vaga..."
+                      />
+                    </div>
+                    <div className="flex items-center gap-3 px-1">
+                      <input type="checkbox" id="notify" defaultChecked className="rounded text-primary focus:ring-primary w-5 h-5" />
+                      <label htmlFor="notify" className="text-xs font-bold text-on-surface">Notificar por e-mail</label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 pt-4">
+                      <button className="py-4 px-4 bg-error text-on-error rounded-2xl font-bold text-sm hover:brightness-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-error/20">
+                        <XCircle className="w-5 h-5" />
+                        Recusar
+                      </button>
+                      <button className="py-4 px-4 bg-primary text-on-primary rounded-2xl font-bold text-sm hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95 flex items-center justify-center gap-2 bg-gradient-to-v from-primary to-primary-container">
+                        <CheckCircle2 className="w-5 h-5" />
+                        Aprovar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.aside>
+            )}
+
+            {(activeView === 'curriculos' && selectedCandidate) && (
+              <motion.aside 
+                key={`candidate-${selectedCandidate.id}`}
+                initial={{ x: 450 }}
+                animate={{ x: 0 }}
+                exit={{ x: 450 }}
+                className="w-[450px] bg-white border-l border-outline-variant/10 p-8 overflow-y-auto shadow-2xl relative z-30"
+              >
+                <div className="flex justify-between items-start mb-8">
+                  <div className="flex gap-4">
+                    <div className="relative w-20 h-20 rounded-2xl overflow-hidden shadow-xl">
+                      <Image src={selectedCandidate.image} alt={selectedCandidate.name} fill className="object-cover" referrerPolicy="no-referrer" />
+                      {selectedCandidate.verified && (
+                        <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-tertiary-fixed flex items-center justify-center border-4 border-white">
+                          <Verified className="w-4 h-4 text-on-tertiary-fixed fill-current" />
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-extrabold text-on-surface leading-tight font-headline">{selectedCandidate.name}</h3>
+                      <p className="text-on-surface-variant font-medium text-sm">{selectedCandidate.role}</p>
+                      <div className="flex gap-3 mt-3">
+                        <ExternalLink className="w-4 h-4 text-primary cursor-pointer hover:scale-110 transition-transform" />
+                        <Share2 className="w-4 h-4 text-primary cursor-pointer hover:scale-110 transition-transform" />
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={() => setSelectedCandidate(null)} className="p-2 hover:bg-surface-container rounded-full text-on-surface-variant">
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-8 mb-10">
+                  <section>
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-secondary mb-3">Resumo do Perfil</h4>
+                    <p className="text-on-surface-variant text-sm leading-relaxed">{selectedCandidate.summary}</p>
+                  </section>
+                  <section>
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-secondary mb-3">Competências Principais</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedCandidate.skills.map(s => (
+                        <span key={s} className="px-3 py-1.5 bg-surface-container rounded-xl text-xs font-bold text-on-surface border border-outline-variant/10">{s}</span>
+                      ))}
+                    </div>
+                  </section>
+                </div>
+
+                <div className="bg-surface-container-low rounded-3xl p-6 space-y-6 border border-outline-variant/10">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-3 ml-1">Justificativa da Decisão</label>
+                    <textarea 
+                      className="w-full bg-white border-outline-variant/30 rounded-2xl text-sm p-4 focus:ring-primary focus:border-primary min-h-[100px] transition-all" 
+                      placeholder="Insira uma observação ou motivo da recusa/aprovação..."
+                    />
+                  </div>
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-3 px-1">
+                      <input type="checkbox" id="notify-cand" defaultChecked className="rounded text-primary focus:ring-primary w-5 h-5" />
+                      <label htmlFor="notify-cand" className="text-xs font-bold text-on-surface-variant">Enviar e-mail de notificação para a candidata</label>
+                    </div>
+                    <div className="flex gap-3">
+                      <button className="flex-1 py-4 px-4 bg-error-container text-on-error-container hover:bg-error/10 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2">
+                        <XCircle className="w-5 h-5" />
+                        Recusar
+                      </button>
+                      <button className="flex-1 py-4 px-4 bg-primary text-on-primary hover:shadow-lg hover:shadow-primary/30 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2 bg-gradient-to-v from-primary to-primary-container">
+                        <CheckCircle2 className="w-5 h-5" />
+                        Aprovar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.aside>
+            )}
+          </AnimatePresence>
+        </div>
+      </main>
+
+      {/* Background Editorial Element */}
+      <div className="fixed bottom-0 right-0 -z-10 opacity-5 pointer-events-none transform translate-x-1/4 translate-y-1/4 select-none">
+        <span className="text-[25rem] font-black text-primary leading-none">CB</span>
+      </div>
+    </div>
+  );
+}
