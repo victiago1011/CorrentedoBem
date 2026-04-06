@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutGrid, 
   FileText, 
@@ -27,15 +27,17 @@ import {
   MapPin,
   Clock,
   Zap,
-  HeartHandshake
+  HeartHandshake,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import { supabase } from '@/lib/supabase';
 
 // --- Types ---
 
-type View = 'vagas' | 'curriculos' | 'historico' | 'configuracoes' | 'galeria';
+type View = 'vagas' | 'curriculos' | 'historico' | 'configuracoes' | 'galeria' | 'galeria_vagas';
 
 interface Job {
   id: string;
@@ -43,13 +45,14 @@ interface Job {
   company: string;
   location: string;
   type: string;
-  date: string;
-  time: string;
+  status: 'pending' | 'active' | 'closed';
+  date?: string;
+  time?: string;
   salary: string;
   description: string;
   requirements: string[];
-  icon: React.ReactNode;
   verified?: boolean;
+  created_at?: string;
 }
 
 interface Candidate {
@@ -57,13 +60,20 @@ interface Candidate {
   name: string;
   location: string;
   area: string;
-  date: string;
-  status: 'Pendente' | 'Aprovado' | 'Recusado';
+  status: 'pending' | 'approved' | 'rejected';
   role: string;
   summary: string;
   skills: string[];
   image: string;
   verified?: boolean;
+  created_at?: string;
+}
+
+interface HistoryItem {
+  id: string;
+  action: string;
+  details: string;
+  created_at: string;
 }
 
 // --- Mock Data ---
@@ -75,12 +85,12 @@ const MOCK_JOBS: Job[] = [
     company: 'Tech Solutions Inc.',
     location: 'Remoto / Brasil',
     type: 'Tempo Integral',
+    status: 'pending',
     date: '12 Out, 2023',
     time: '14:30',
     salary: 'R$ 12k - 16k',
     description: 'Buscamos uma pessoa apaixonada por interfaces modernas e performance. Você será responsável por liderar o desenvolvimento de nossos novos dashboards administrativos utilizando React, Tailwind CSS e integração com APIs RESTful.',
     requirements: ['5+ anos de experiência com React.', 'Domínio de TypeScript e Tailwind CSS.', 'Experiência com testes unitários (Jest/Cypress).'],
-    icon: <Briefcase className="w-5 h-5" />,
     verified: true
   },
   {
@@ -89,12 +99,12 @@ const MOCK_JOBS: Job[] = [
     company: 'Creative Minds Studio',
     location: 'São Paulo, SP • Híbrido',
     type: 'Híbrido',
+    status: 'pending',
     date: '11 Out, 2023',
     time: '09:15',
     salary: 'R$ 8k - 11k',
     description: 'Responsável por criar experiências incríveis para nossos usuários mobile e web.',
-    requirements: ['3+ anos de experiência.', 'Figma expert.', 'Conhecimento em Design Systems.'],
-    icon: <Palette className="w-5 h-5" />
+    requirements: ['3+ anos de experiência.', 'Figma expert.', 'Conhecimento em Design Systems.']
   },
   {
     id: '3',
@@ -102,12 +112,12 @@ const MOCK_JOBS: Job[] = [
     company: 'Varejo Global S.A.',
     location: 'Rio de Janeiro, RJ • Presencial',
     type: 'Presencial',
+    status: 'pending',
     date: '10 Out, 2023',
     time: '17:45',
     salary: 'R$ 5k - 7k',
     description: 'Foco em performance e crescimento orgânico.',
-    requirements: ['Experiência com SEO/SEM.', 'Análise de dados.', 'Gestão de redes sociais.'],
-    icon: <Megaphone className="w-5 h-5" />
+    requirements: ['Experiência com SEO/SEM.', 'Análise de dados.', 'Gestão de redes sociais.']
   },
   {
     id: '4',
@@ -115,12 +125,12 @@ const MOCK_JOBS: Job[] = [
     company: 'Fintech Inovadora',
     location: 'Remoto • PJ',
     type: 'PJ',
+    status: 'pending',
     date: '10 Out, 2023',
     time: '11:20',
     salary: 'R$ 10k + comissão',
     description: 'Gestão de carteira de clientes B2B.',
-    requirements: ['Experiência em vendas consultivas.', 'Networking no setor financeiro.'],
-    icon: <DollarSign className="w-5 h-5" />
+    requirements: ['Experiência em vendas consultivas.', 'Networking no setor financeiro.']
   }
 ];
 
@@ -131,7 +141,7 @@ const MOCK_CANDIDATES: Candidate[] = [
     location: 'São Paulo, SP',
     area: 'Desenvolvimento Web',
     date: '12 Out, 2023',
-    status: 'Pendente',
+    status: 'pending',
     role: 'Desenvolvedora Full Stack Pleno',
     summary: 'Desenvolvedora com mais de 5 anos de experiência em tecnologias JavaScript (React, Node.js). Especialista em criar arquiteturas escaláveis e foco total em experiência do usuário e acessibilidade.',
     skills: ['React & Next.js', 'TypeScript', 'Node.js (API Rest)', 'PostgreSQL', 'UI Design Systems', 'CI/CD Pipeline'],
@@ -144,7 +154,7 @@ const MOCK_CANDIDATES: Candidate[] = [
     location: 'Rio de Janeiro, RJ',
     area: 'UI/UX Design',
     date: '11 Out, 2023',
-    status: 'Pendente',
+    status: 'pending',
     role: 'Product Designer',
     summary: 'Especialista em interfaces intuitivas e centradas no usuário.',
     skills: ['Figma', 'Prototipagem', 'User Research'],
@@ -156,7 +166,7 @@ const MOCK_CANDIDATES: Candidate[] = [
     location: 'Belo Horizonte, MG',
     area: 'Marketing Digital',
     date: '10 Out, 2023',
-    status: 'Pendente',
+    status: 'pending',
     role: 'Growth Hacker',
     summary: 'Focada em métricas e escala de negócios digitais.',
     skills: ['SEO', 'Google Ads', 'Copywriting'],
@@ -178,13 +188,14 @@ const Sidebar = ({ activeView, setView }: { activeView: View, setView: (v: View)
       </div>
     </div>
 
-    <nav className="flex-1 px-4 space-y-2">
+    <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
       {[
         { id: 'vagas', label: 'Vagas Pendentes', icon: <Clock className="w-5 h-5" /> },
         { id: 'curriculos', label: 'Currículos Pendentes', icon: <FileText className="w-5 h-5" /> },
+        { id: 'galeria_vagas', label: 'Galeria de Vagas', icon: <Briefcase className="w-5 h-5" /> },
+        { id: 'galeria', label: 'Galeria de Talentos', icon: <LayoutGrid className="w-5 h-5" /> },
         { id: 'historico', label: 'Histórico', icon: <History className="w-5 h-5" /> },
         { id: 'configuracoes', label: 'Configurações', icon: <Settings className="w-5 h-5" /> },
-        { id: 'galeria', label: 'Galeria de Talentos', icon: <LayoutGrid className="w-5 h-5" /> },
       ].map((item) => (
         <button
           key={item.id}
@@ -252,8 +263,188 @@ const Header = () => (
 
 export default function Dashboard() {
   const [activeView, setView] = useState<View>('vagas');
-  const [selectedJob, setSelectedJob] = useState<Job | null>(MOCK_JOBS[0]);
-  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(MOCK_CANDIDATES[0]);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
+  const [isAddingJob, setIsAddingJob] = useState(false);
+
+  // Fetch Data
+  const fetchData = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [jobsRes, candidatesRes, historyRes] = await Promise.all([
+        supabase.from('jobs').select('*').order('created_at', { ascending: false }),
+        supabase.from('candidates').select('*').order('created_at', { ascending: false }),
+        supabase.from('history').select('*').order('created_at', { ascending: false })
+      ]);
+
+      if (jobsRes.data) setJobs(jobsRes.data);
+      if (candidatesRes.data) setCandidates(candidatesRes.data);
+      if (historyRes.data) setHistory(historyRes.data);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // CRUD Actions
+  const approveJob = React.useCallback(async (id: string) => {
+    const job = jobs.find(j => j.id === id);
+    if (!job) return;
+
+    const { error } = await supabase
+      .from('jobs')
+      .update({ status: 'active' })
+      .eq('id', id);
+
+    if (!error) {
+      setJobs(prev => prev.map(j => j.id === id ? { ...j, status: 'active' } : j));
+      
+      const historyEntry = {
+        action: 'Vaga Aprovada',
+        details: `Vaga "${job.title}" da empresa "${job.company}" foi aprovada.`
+      };
+      
+      const { data: hData } = await supabase.from('history').insert(historyEntry).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+      
+      setSelectedJob(null);
+    }
+  }, [jobs]);
+
+  const rejectJob = React.useCallback(async (id: string) => {
+    const job = jobs.find(j => j.id === id);
+    if (!job) return;
+
+    const { error } = await supabase
+      .from('jobs')
+      .delete()
+      .eq('id', id);
+
+    if (!error) {
+      setJobs(prev => prev.filter(j => j.id !== id));
+      
+      const historyEntry = {
+        action: 'Vaga Recusada',
+        details: `Vaga "${job.title}" da empresa "${job.company}" foi recusada.`
+      };
+      
+      const { data: hData } = await supabase.from('history').insert(historyEntry).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+      
+      setSelectedJob(null);
+    }
+  }, [jobs]);
+
+  const deleteJob = React.useCallback(async (id: string) => {
+    const job = jobs.find(j => j.id === id);
+    if (!job) return;
+
+    const { error } = await supabase
+      .from('jobs')
+      .delete()
+      .eq('id', id);
+
+    if (!error) {
+      setJobs(prev => prev.filter(j => j.id !== id));
+      
+      const historyEntry = {
+        action: 'Vaga Removida',
+        details: `Vaga "${job.title}" foi removida manualmente.`
+      };
+      
+      const { data: hData } = await supabase.from('history').insert(historyEntry).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+    }
+  }, [jobs]);
+
+  const approveCandidate = React.useCallback(async (id: string) => {
+    const cand = candidates.find(c => c.id === id);
+    if (!cand) return;
+
+    const { error } = await supabase
+      .from('candidates')
+      .update({ status: 'approved' })
+      .eq('id', id);
+
+    if (!error) {
+      setCandidates(prev => prev.map(c => c.id === id ? { ...c, status: 'approved' } : c));
+      
+      const historyEntry = {
+        action: 'Currículo Aprovado',
+        details: `Currículo de "${cand.name}" foi aprovado.`
+      };
+      
+      const { data: hData } = await supabase.from('history').insert(historyEntry).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+      
+      setSelectedCandidate(null);
+    }
+  }, [candidates]);
+
+  const rejectCandidate = React.useCallback(async (id: string) => {
+    const cand = candidates.find(c => c.id === id);
+    if (!cand) return;
+
+    const { error } = await supabase
+      .from('candidates')
+      .update({ status: 'rejected' })
+      .eq('id', id);
+
+    if (!error) {
+      setCandidates(prev => prev.map(c => c.id === id ? { ...c, status: 'rejected' } : c));
+      
+      const historyEntry = {
+        action: 'Currículo Recusado',
+        details: `Currículo de "${cand.name}" foi recusado.`
+      };
+      
+      const { data: hData } = await supabase.from('history').insert(historyEntry).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+      
+      setSelectedCandidate(null);
+    }
+  }, [candidates]);
+
+  const addJob = React.useCallback(async (newJob: Partial<Job>) => {
+    const jobData = {
+      title: newJob.title || 'Nova Vaga',
+      company: newJob.company || 'Empresa',
+      location: newJob.location || 'Remoto',
+      type: newJob.type || 'Tempo Integral',
+      status: 'active',
+      salary: newJob.salary || 'A combinar',
+      description: newJob.description || '',
+      requirements: newJob.requirements || [],
+    };
+
+    const { data, error } = await supabase
+      .from('jobs')
+      .insert(jobData)
+      .select()
+      .single();
+
+    if (data && !error) {
+      setJobs(prev => [data, ...prev]);
+      setIsAddingJob(false);
+      
+      const historyEntry = {
+        action: 'Vaga Criada',
+        details: `Vaga "${data.title}" foi criada manualmente.`
+      };
+      const { data: hData } = await supabase.from('history').insert(historyEntry).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen flex">
@@ -264,7 +455,15 @@ export default function Dashboard() {
         
         <div className="flex-1 flex overflow-hidden">
           {/* Content Area */}
-          <div className="flex-1 p-8 overflow-y-auto">
+          <div className="flex-1 p-8 overflow-y-auto relative">
+            {isLoading && (
+              <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-40 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                  <p className="text-sm font-bold text-primary animate-pulse uppercase tracking-widest">Sincronizando Dados...</p>
+                </div>
+              </div>
+            )}
             {activeView === 'vagas' && (
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
@@ -279,7 +478,7 @@ export default function Dashboard() {
                   <div className="flex gap-3">
                     <span className="px-4 py-2 bg-tertiary-fixed text-on-tertiary-fixed font-bold rounded-full text-xs flex items-center gap-2 shadow-sm">
                       <Zap className="w-4 h-4 fill-current" />
-                      12 Pendentes Hoje
+                      {jobs.filter(j => j.status === 'pending').length} Pendentes Hoje
                     </span>
                   </div>
                 </header>
@@ -295,7 +494,7 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-outline-variant/10">
-                      {MOCK_JOBS.map((job) => (
+                      {jobs.filter(j => j.status === 'pending').map((job) => (
                         <tr 
                           key={job.id}
                           onClick={() => setSelectedJob(job)}
@@ -310,7 +509,7 @@ export default function Dashboard() {
                                 "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
                                 selectedJob?.id === job.id ? "bg-primary text-on-primary" : "bg-surface-container text-outline group-hover:bg-primary/20 group-hover:text-primary"
                               )}>
-                                {job.icon}
+                                <Briefcase className="w-5 h-5" />
                               </div>
                               <div>
                                 <p className={cn("font-bold", selectedJob?.id === job.id ? "text-primary" : "text-on-surface")}>{job.title}</p>
@@ -325,7 +524,7 @@ export default function Dashboard() {
                             </div>
                           </td>
                           <td className="px-6 py-5 text-sm text-on-surface-variant">
-                            {job.date} • {job.time}
+                            {job.date || 'Hoje'} • {job.time || 'Agora'}
                           </td>
                           <td className="px-6 py-5 text-right">
                             <button className={cn(
@@ -339,19 +538,15 @@ export default function Dashboard() {
                           </td>
                         </tr>
                       ))}
+                      {jobs.filter(j => j.status === 'pending').length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-10 text-center text-on-surface-variant">
+                            Nenhuma vaga pendente no momento.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
-                  <footer className="p-6 bg-surface-container-low border-t border-outline-variant/10 flex justify-between items-center text-sm text-on-surface-variant">
-                    <span>Exibindo 4 de 24 vagas pendentes</span>
-                    <div className="flex gap-2">
-                      {[1, 2, 3].map(p => (
-                        <button key={p} className={cn(
-                          "w-8 h-8 flex items-center justify-center rounded-lg border transition-all font-bold",
-                          p === 1 ? "bg-primary text-on-primary border-primary" : "bg-white border-outline-variant/30 hover:bg-primary/5"
-                        )}>{p}</button>
-                      ))}
-                    </div>
-                  </footer>
                 </div>
               </motion.div>
             )}
@@ -375,7 +570,7 @@ export default function Dashboard() {
                       <Search className="w-6 h-6" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-on-surface leading-tight">24</p>
+                      <p className="text-2xl font-bold text-on-surface leading-tight">{candidates.filter(c => c.status === 'pending').length}</p>
                       <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Aguardando Revisão</p>
                     </div>
                   </div>
@@ -392,7 +587,7 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody className="text-sm">
-                      {MOCK_CANDIDATES.map((c) => (
+                      {candidates.filter(c => c.status === 'pending').map((c) => (
                         <tr 
                           key={c.id}
                           onClick={() => setSelectedCandidate(c)}
@@ -415,17 +610,120 @@ export default function Dashboard() {
                           <td className="px-4 py-4">
                             <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-semibold">{c.area}</span>
                           </td>
-                          <td className="px-4 py-4 text-on-surface-variant font-medium">{c.date}</td>
+                          <td className="px-4 py-4 text-on-surface-variant font-medium">{c.date || 'Hoje'}</td>
                           <td className="px-4 py-4 rounded-r-xl">
                             <div className="flex items-center gap-1 text-secondary font-bold text-xs italic uppercase">
                               <span className="w-2 h-2 rounded-full bg-secondary"></span>
-                              {c.status}
+                              Pendente
                             </div>
                           </td>
                         </tr>
                       ))}
+                      {candidates.filter(c => c.status === 'pending').length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-10 text-center text-on-surface-variant">
+                            Nenhum currículo pendente no momento.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
+                </div>
+              </motion.div>
+            )}
+
+            {activeView === 'galeria_vagas' && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-8"
+              >
+                <header className="flex justify-between items-end">
+                  <div>
+                    <h1 className="text-3xl font-extrabold text-primary tracking-tight font-headline">Galeria de Vagas</h1>
+                    <p className="text-on-surface-variant mt-1">Gerencie as vagas ativas no site. Adicione novas ou remova as encerradas.</p>
+                  </div>
+                  <button 
+                    onClick={() => setIsAddingJob(true)}
+                    className="px-6 py-3 bg-primary text-on-primary rounded-xl font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-all flex items-center gap-2"
+                  >
+                    <Briefcase className="w-5 h-5" />
+                    Nova Vaga
+                  </button>
+                </header>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {jobs.filter(j => j.status === 'active').map((job) => (
+                    <div key={job.id} className="bg-white p-6 rounded-2xl shadow-sm border border-outline-variant/10 hover:shadow-md transition-all group">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                          <Briefcase className="w-6 h-6" />
+                        </div>
+                        <button 
+                          onClick={() => deleteJob(job.id)}
+                          className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                        >
+                          <XCircle className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <h3 className="font-bold text-lg mb-1">{job.title}</h3>
+                      <p className="text-primary font-semibold text-sm mb-3">{job.company}</p>
+                      <div className="space-y-2 mb-6">
+                        <div className="flex items-center gap-2 text-xs text-on-surface-variant">
+                          <MapPin className="w-3 h-3" />
+                          {job.location}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-on-surface-variant">
+                          <Clock className="w-3 h-3" />
+                          {job.type}
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center pt-4 border-t border-outline-variant/10">
+                        <span className="text-xs font-bold text-tertiary">ATIVA</span>
+                        <button className="text-xs font-bold text-primary hover:underline">Editar</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {activeView === 'historico' && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-8"
+              >
+                <header>
+                  <h1 className="text-3xl font-extrabold text-primary tracking-tight font-headline">Histórico de Ações</h1>
+                  <p className="text-on-surface-variant mt-1">Acompanhe todas as atividades de moderação realizadas no painel.</p>
+                </header>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
+                  <div className="divide-y divide-outline-variant/10">
+                    {history.length > 0 ? history.map((item) => (
+                      <div key={item.id} className="p-6 hover:bg-surface-container-low transition-colors flex gap-4">
+                        <div className={cn(
+                          "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
+                          item.action.includes('Aprovada') || item.action.includes('Aprovado') ? "bg-tertiary/10 text-tertiary" : 
+                          item.action.includes('Recusada') || item.action.includes('Recusado') ? "bg-error/10 text-error" : "bg-primary/10 text-primary"
+                        )}>
+                          <History className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-3 mb-1">
+                            <p className="font-bold text-on-surface">{item.action}</p>
+                            <span className="text-xs text-on-surface-variant">{new Date(item.created_at).toLocaleString('pt-BR')}</span>
+                          </div>
+                          <p className="text-sm text-on-surface-variant">{item.details}</p>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="p-12 text-center text-on-surface-variant">
+                        Nenhuma ação registrada ainda.
+                      </div>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -506,56 +804,109 @@ export default function Dashboard() {
                   </aside>
 
                   <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Featured Talent Card */}
-                    <div className="col-span-1 md:col-span-2 bg-surface-container-low rounded-3xl p-8 hover:bg-white transition-all duration-300 border border-outline-variant/10 group flex flex-col md:flex-row gap-8">
-                      <div className="relative w-32 h-32 md:w-48 md:h-48 rounded-2xl overflow-hidden shrink-0 shadow-xl group-hover:scale-105 transition-transform duration-500">
-                        <Image src="https://picsum.photos/seed/ricardo/400/400" alt="Ricardo" fill className="object-cover" referrerPolicy="no-referrer" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="px-3 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold uppercase tracking-widest">Tecnologia</span>
-                          <Bookmark className="w-5 h-5 text-outline hover:text-secondary cursor-pointer transition-colors" />
-                        </div>
-                        <h3 className="text-3xl font-bold text-on-surface mb-1 font-headline">Ricardo Silva</h3>
-                        <p className="text-primary font-semibold mb-4 text-lg">Desenvolvedor Full Stack Sênior</p>
-                        <p className="text-on-surface-variant leading-relaxed mb-6">Especialista em React, Node.js e arquitetura de microsserviços. 8 anos de experiência liderando times ágeis em projetos de escala global.</p>
-                        <div className="flex flex-wrap gap-2 mb-8">
-                          {['Cloud Architecture', 'TypeScript', 'DevOps'].map(s => (
-                            <span key={s} className="px-3 py-1 bg-surface-container-highest rounded-lg text-xs font-medium text-on-surface-variant">{s}</span>
-                          ))}
-                        </div>
-                        <button className="px-8 py-3 bg-primary text-on-primary rounded-xl font-bold hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-95">Ver Perfil Completo</button>
-                      </div>
-                    </div>
-
-                    {/* Small Talent Cards */}
-                    {[1, 2].map(i => (
-                      <div key={i} className="bg-surface-container-low rounded-3xl p-6 hover:bg-white transition-all duration-300 border border-outline-variant/10">
+                    {candidates.filter(c => c.status === 'approved').map((cand) => (
+                      <div key={cand.id} className="bg-surface-container-low rounded-3xl p-6 hover:bg-white transition-all duration-300 border border-outline-variant/10">
                         <div className="flex gap-4 mb-6">
                           <div className="relative w-20 h-20 rounded-full overflow-hidden shadow-md">
-                            <Image src={`https://picsum.photos/seed/talent${i}/200/200`} alt="Talent" fill className="object-cover" referrerPolicy="no-referrer" />
+                            <Image src={cand.image} alt={cand.name} fill className="object-cover" referrerPolicy="no-referrer" />
                           </div>
                           <div>
-                            <span className="px-2 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold uppercase tracking-widest">Saúde</span>
-                            <h4 className="text-xl font-bold mt-1 font-headline">Dra. Beatriz Santos</h4>
-                            <p className="text-primary text-sm font-medium">Médica Intensivista</p>
+                            <span className="px-2 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold uppercase tracking-widest">{cand.area}</span>
+                            <h4 className="text-xl font-bold mt-1 font-headline">{cand.name}</h4>
+                            <p className="text-primary text-sm font-medium">{cand.role}</p>
                           </div>
                         </div>
-                        <p className="text-on-surface-variant text-sm mb-6 leading-relaxed">Gestão hospitalar e cuidado crítico com foco em humanização e eficiência operacional.</p>
+                        <p className="text-on-surface-variant text-sm mb-6 leading-relaxed">{cand.summary}</p>
                         <div className="flex justify-between items-center">
                           <div className="flex items-center text-on-surface-variant text-xs gap-1 font-medium">
                             <MapPin className="w-3 h-3" />
-                            São Paulo, SP
+                            {cand.location}
                           </div>
                           <button className="text-primary font-bold text-sm hover:underline decoration-2 underline-offset-4">Ver Currículo</button>
                         </div>
                       </div>
                     ))}
+                    {candidates.filter(c => c.status === 'approved').length === 0 && (
+                      <div className="col-span-2 p-12 text-center text-on-surface-variant">
+                        Nenhum talento aprovado na galeria ainda.
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>
             )}
           </div>
+
+          {isAddingJob && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-white rounded-3xl p-8 max-w-2xl w-full shadow-2xl border border-outline-variant/10"
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-primary font-headline">Cadastrar Nova Vaga</h2>
+                  <button onClick={() => setIsAddingJob(false)} className="p-2 hover:bg-surface-container rounded-full transition-colors">
+                    <XCircle className="w-6 h-6 text-on-surface-variant" />
+                  </button>
+                </div>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.currentTarget);
+                  addJob({
+                    title: formData.get('title') as string,
+                    company: formData.get('company') as string,
+                    location: formData.get('location') as string,
+                    type: formData.get('type') as string,
+                    salary: formData.get('salary') as string,
+                    description: formData.get('description') as string,
+                    requirements: (formData.get('requirements') as string).split('\n').filter(r => r.trim()),
+                  });
+                }} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-on-surface-variant uppercase">Título da Vaga</label>
+                      <input name="title" required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Ex: Desenvolvedor React" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-on-surface-variant uppercase">Empresa</label>
+                      <input name="company" required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Nome da empresa" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-on-surface-variant uppercase">Localização</label>
+                      <input name="location" required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Ex: Remoto" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-on-surface-variant uppercase">Tipo</label>
+                      <select name="type" className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none">
+                        <option>Tempo Integral</option>
+                        <option>Meio Período</option>
+                        <option>PJ / Freelance</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-on-surface-variant uppercase">Salário</label>
+                      <input name="salary" className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Ex: R$ 5.000" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase">Descrição</label>
+                    <textarea name="description" rows={3} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Descreva a vaga..."></textarea>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase">Requisitos (um por linha)</label>
+                    <textarea name="requirements" rows={3} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Ex: React&#10;TypeScript&#10;Tailwind"></textarea>
+                  </div>
+                  <div className="flex gap-3 pt-4">
+                    <button type="button" onClick={() => setIsAddingJob(false)} className="flex-1 py-3 px-4 bg-surface-container-highest text-on-surface rounded-xl font-bold hover:bg-surface-container transition-all">Cancelar</button>
+                    <button type="submit" className="flex-1 py-3 px-4 bg-primary text-on-primary rounded-xl font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">Publicar Vaga</button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
 
           {/* Right Panel (Contextual Detail) */}
           <AnimatePresence mode="wait">
@@ -641,11 +992,17 @@ export default function Dashboard() {
                       <label htmlFor="notify" className="text-xs font-bold text-on-surface">Notificar por e-mail</label>
                     </div>
                     <div className="grid grid-cols-2 gap-3 pt-4">
-                      <button className="py-4 px-4 bg-error text-on-error rounded-2xl font-bold text-sm hover:brightness-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-error/20">
+                      <button 
+                        onClick={() => rejectJob(selectedJob.id)}
+                        className="py-4 px-4 bg-error text-on-error rounded-2xl font-bold text-sm hover:brightness-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-error/20"
+                      >
                         <XCircle className="w-5 h-5" />
                         Recusar
                       </button>
-                      <button className="py-4 px-4 bg-primary text-on-primary rounded-2xl font-bold text-sm hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95 flex items-center justify-center gap-2 bg-gradient-to-v from-primary to-primary-container">
+                      <button 
+                        onClick={() => approveJob(selectedJob.id)}
+                        className="py-4 px-4 bg-primary text-on-primary rounded-2xl font-bold text-sm hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95 flex items-center justify-center gap-2 bg-gradient-to-v from-primary to-primary-container"
+                      >
                         <CheckCircle2 className="w-5 h-5" />
                         Aprovar
                       </button>
@@ -716,11 +1073,17 @@ export default function Dashboard() {
                       <label htmlFor="notify-cand" className="text-xs font-bold text-on-surface-variant">Enviar e-mail de notificação para a candidata</label>
                     </div>
                     <div className="flex gap-3">
-                      <button className="flex-1 py-4 px-4 bg-error-container text-on-error-container hover:bg-error/10 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2">
+                      <button 
+                        onClick={() => rejectCandidate(selectedCandidate.id)}
+                        className="flex-1 py-4 px-4 bg-error-container text-on-error-container hover:bg-error/10 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2"
+                      >
                         <XCircle className="w-5 h-5" />
                         Recusar
                       </button>
-                      <button className="flex-1 py-4 px-4 bg-primary text-on-primary hover:shadow-lg hover:shadow-primary/30 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2 bg-gradient-to-v from-primary to-primary-container">
+                      <button 
+                        onClick={() => approveCandidate(selectedCandidate.id)}
+                        className="flex-1 py-4 px-4 bg-primary text-on-primary hover:shadow-lg hover:shadow-primary/30 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2 bg-gradient-to-v from-primary to-primary-container"
+                      >
                         <CheckCircle2 className="w-5 h-5" />
                         Aprovar
                       </button>
