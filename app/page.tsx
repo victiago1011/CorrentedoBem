@@ -28,7 +28,9 @@ import {
   Clock,
   Zap,
   HeartHandshake,
-  Loader2
+  Loader2,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -37,7 +39,7 @@ import { supabase } from '@/lib/supabase';
 
 // --- Types ---
 
-type View = 'vagas' | 'curriculos' | 'historico' | 'configuracoes' | 'galeria' | 'galeria_vagas';
+type View = 'vagas' | 'curriculos' | 'historico' | 'configuracoes' | 'galeria' | 'galeria_vagas' | 'recusados';
 
 interface Job {
   id: string;
@@ -45,7 +47,7 @@ interface Job {
   company: string;
   location: string;
   type: string;
-  status: 'pending' | 'active' | 'closed';
+  status: 'pending' | 'active' | 'rejected' | 'closed';
   date?: string;
   time?: string;
   salary: string;
@@ -194,6 +196,7 @@ const Sidebar = ({ activeView, setView }: { activeView: View, setView: (v: View)
         { id: 'curriculos', label: 'Currículos Pendentes', icon: <FileText className="w-5 h-5" /> },
         { id: 'galeria_vagas', label: 'Galeria de Vagas', icon: <Briefcase className="w-5 h-5" /> },
         { id: 'galeria', label: 'Galeria de Talentos', icon: <LayoutGrid className="w-5 h-5" /> },
+        { id: 'recusados', label: 'Recusados', icon: <XCircle className="w-5 h-5" /> },
         { id: 'historico', label: 'Histórico', icon: <History className="w-5 h-5" /> },
         { id: 'configuracoes', label: 'Configurações', icon: <Settings className="w-5 h-5" /> },
       ].map((item) => (
@@ -216,20 +219,8 @@ const Sidebar = ({ activeView, setView }: { activeView: View, setView: (v: View)
     </nav>
 
     <div className="px-6 mt-auto">
-      <div className="p-4 bg-surface-container-low rounded-2xl flex items-center gap-3 border border-outline-variant/10">
-        <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-sm">
-          <Image 
-            src="https://picsum.photos/seed/admin/100/100" 
-            alt="Admin" 
-            fill 
-            className="object-cover"
-            referrerPolicy="no-referrer"
-          />
-        </div>
-        <div className="overflow-hidden">
-          <p className="text-sm font-bold truncate">Ricardo Silva</p>
-          <p className="text-xs text-on-surface-variant truncate">Super Admin</p>
-        </div>
+      <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 text-center">
+        <p className="text-[10px] uppercase tracking-widest text-primary font-bold">Sistema Ativo</p>
       </div>
     </div>
   </aside>
@@ -271,6 +262,20 @@ export default function Dashboard() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [isAddingJob, setIsAddingJob] = useState(false);
+  const [editingJob, setEditingJob] = useState<Job | null>(null);
+  const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
+  
+  const [talentSearch, setTalentSearch] = useState('');
+  const [talentCategory, setTalentCategory] = useState('Todos os Talentos');
+  const [jobSearch, setJobSearch] = useState('');
+  const [jobCategory, setJobCategory] = useState('Todas as Vagas');
+
+  const [confirmAction, setConfirmAction] = useState<{
+    type: 'approve' | 'reject' | 'delete' | 'edit';
+    target: 'job' | 'candidate';
+    id: string;
+    payload?: any;
+  } | null>(null);
 
   // Fetch Data
   const fetchData = React.useCallback(async () => {
@@ -318,6 +323,7 @@ export default function Dashboard() {
       if (hData) setHistory(prev => [hData, ...prev]);
       
       setSelectedJob(null);
+      setConfirmAction(null);
     }
   }, [jobs]);
 
@@ -327,11 +333,11 @@ export default function Dashboard() {
 
     const { error } = await supabase
       .from('jobs')
-      .delete()
+      .update({ status: 'rejected' })
       .eq('id', id);
 
     if (!error) {
-      setJobs(prev => prev.filter(j => j.id !== id));
+      setJobs(prev => prev.map(j => j.id === id ? { ...j, status: 'rejected' } : j));
       
       const historyEntry = {
         action: 'Vaga Recusada',
@@ -342,6 +348,7 @@ export default function Dashboard() {
       if (hData) setHistory(prev => [hData, ...prev]);
       
       setSelectedJob(null);
+      setConfirmAction(null);
     }
   }, [jobs]);
 
@@ -388,6 +395,7 @@ export default function Dashboard() {
       if (hData) setHistory(prev => [hData, ...prev]);
       
       setSelectedCandidate(null);
+      setConfirmAction(null);
     }
   }, [candidates]);
 
@@ -412,6 +420,7 @@ export default function Dashboard() {
       if (hData) setHistory(prev => [hData, ...prev]);
       
       setSelectedCandidate(null);
+      setConfirmAction(null);
     }
   }, [candidates]);
 
@@ -440,6 +449,87 @@ export default function Dashboard() {
       const historyEntry = {
         action: 'Vaga Criada',
         details: `Vaga "${data.title}" foi criada manualmente.`
+      };
+      const { data: hData } = await supabase.from('history').insert(historyEntry).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+    }
+  }, []);
+
+  const updateJob = React.useCallback(async (updatedJob: Job) => {
+    const { data, error } = await supabase
+      .from('jobs')
+      .update({
+        title: updatedJob.title,
+        company: updatedJob.company,
+        location: updatedJob.location,
+        type: updatedJob.type,
+        salary: updatedJob.salary,
+        description: updatedJob.description,
+        requirements: updatedJob.requirements,
+      })
+      .eq('id', updatedJob.id)
+      .select()
+      .single();
+
+    if (data && !error) {
+      setJobs(prev => prev.map(j => j.id === data.id ? data : j));
+      setEditingJob(null);
+      setConfirmAction(null);
+      
+      const historyEntry = {
+        action: 'Vaga Editada',
+        details: `Vaga "${data.title}" foi editada manualmente.`
+      };
+      const { data: hData } = await supabase.from('history').insert(historyEntry).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+    }
+  }, []);
+
+  const deleteCandidate = React.useCallback(async (id: string) => {
+    const cand = candidates.find(c => c.id === id);
+    if (!cand) return;
+
+    const { error } = await supabase
+      .from('candidates')
+      .delete()
+      .eq('id', id);
+
+    if (!error) {
+      setCandidates(prev => prev.filter(c => c.id !== id));
+      setConfirmAction(null);
+      
+      const historyEntry = {
+        action: 'Candidato Removido',
+        details: `Currículo de "${cand.name}" foi removido manualmente.`
+      };
+      const { data: hData } = await supabase.from('history').insert(historyEntry).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+    }
+  }, [candidates]);
+
+  const updateCandidate = React.useCallback(async (updatedCand: Candidate) => {
+    const { data, error } = await supabase
+      .from('candidates')
+      .update({
+        name: updatedCand.name,
+        location: updatedCand.location,
+        area: updatedCand.area,
+        role: updatedCand.role,
+        summary: updatedCand.summary,
+        skills: updatedCand.skills,
+      })
+      .eq('id', updatedCand.id)
+      .select()
+      .single();
+
+    if (data && !error) {
+      setCandidates(prev => prev.map(c => c.id === data.id ? data : c));
+      setEditingCandidate(null);
+      setConfirmAction(null);
+      
+      const historyEntry = {
+        action: 'Candidato Editado',
+        details: `Currículo de "${data.name}" foi editado manualmente.`
       };
       const { data: hData } = await supabase.from('history').insert(historyEntry).select().single();
       if (hData) setHistory(prev => [hData, ...prev]);
@@ -638,29 +728,60 @@ export default function Dashboard() {
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-8"
               >
-                <header className="flex justify-between items-end">
+                <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                   <div>
                     <h1 className="text-3xl font-extrabold text-primary tracking-tight font-headline">Galeria de Vagas</h1>
                     <p className="text-on-surface-variant mt-1">Gerencie as vagas ativas no site. Adicione novas ou remova as encerradas.</p>
                   </div>
-                  <button 
-                    onClick={() => setIsAddingJob(true)}
-                    className="px-6 py-3 bg-primary text-on-primary rounded-xl font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-all flex items-center gap-2"
-                  >
-                    <Briefcase className="w-5 h-5" />
-                    Nova Vaga
-                  </button>
+                  <div className="flex flex-wrap gap-3">
+                    <div className="relative w-64">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-outline w-4 h-4" />
+                      <input 
+                        type="text" 
+                        value={jobSearch}
+                        onChange={(e) => setJobSearch(e.target.value)}
+                        placeholder="Buscar vaga..." 
+                        className="w-full pl-10 pr-4 py-2 bg-white border border-outline-variant/20 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                      />
+                    </div>
+                    <button 
+                      onClick={() => setIsAddingJob(true)}
+                      className="px-6 py-2 bg-primary text-on-primary rounded-xl font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-all flex items-center gap-2 text-sm"
+                    >
+                      <Briefcase className="w-4 h-4" />
+                      Nova Vaga
+                    </button>
+                  </div>
                 </header>
 
+                <nav className="flex overflow-x-auto gap-3 pb-2 no-scrollbar">
+                  {['Todas as Vagas', 'Tempo Integral', 'Meio Período', 'PJ / Freelance'].map((cat) => (
+                    <button 
+                      key={cat}
+                      onClick={() => setJobCategory(cat)}
+                      className={cn(
+                        "px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all",
+                        jobCategory === cat ? "bg-primary text-on-primary" : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
+                      )}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </nav>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {jobs.filter(j => j.status === 'active').map((job) => (
+                  {jobs
+                    .filter(j => j.status === 'active')
+                    .filter(j => jobCategory === 'Todas as Vagas' || j.type === jobCategory)
+                    .filter(j => j.title.toLowerCase().includes(jobSearch.toLowerCase()) || j.company.toLowerCase().includes(jobSearch.toLowerCase()))
+                    .map((job) => (
                     <div key={job.id} className="bg-white p-6 rounded-2xl shadow-sm border border-outline-variant/10 hover:shadow-md transition-all group">
                       <div className="flex justify-between items-start mb-4">
                         <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
                           <Briefcase className="w-6 h-6" />
                         </div>
                         <button 
-                          onClick={() => deleteJob(job.id)}
+                          onClick={() => setConfirmAction({ type: 'delete', target: 'job', id: job.id })}
                           className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                         >
                           <XCircle className="w-5 h-5" />
@@ -679,15 +800,97 @@ export default function Dashboard() {
                         </div>
                       </div>
                       <div className="flex justify-between items-center pt-4 border-t border-outline-variant/10">
-                        <span className="text-xs font-bold text-tertiary">ATIVA</span>
-                        <button className="text-xs font-bold text-primary hover:underline">Editar</button>
+                        <span className="text-xs font-bold text-tertiary uppercase">ATIVA</span>
+                        <button 
+                          onClick={() => setEditingJob(job)}
+                          className="text-xs font-bold text-primary hover:underline"
+                        >
+                          Editar
+                        </button>
                       </div>
                     </div>
                   ))}
+                  {jobs.filter(j => j.status === 'active').length === 0 && (
+                    <div className="col-span-full py-12 text-center text-on-surface-variant">
+                      Nenhuma vaga ativa na galeria.
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
 
+            {activeView === 'recusados' && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-8"
+              >
+                <header>
+                  <h1 className="text-3xl font-extrabold text-error tracking-tight font-headline">Itens Recusados</h1>
+                  <p className="text-on-surface-variant mt-1">Visualize vagas e candidatos que não foram aprovados.</p>
+                </header>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <section className="space-y-4">
+                    <h2 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant flex items-center gap-2">
+                      <Briefcase className="w-4 h-4" />
+                      Vagas Recusadas
+                    </h2>
+                    <div className="space-y-3">
+                      {jobs.filter(j => j.status === 'rejected').map(job => (
+                        <div key={job.id} className="p-4 bg-white rounded-2xl border border-outline-variant/10 shadow-sm flex justify-between items-center">
+                          <div>
+                            <p className="font-bold text-on-surface">{job.title}</p>
+                            <p className="text-xs text-on-surface-variant">{job.company}</p>
+                          </div>
+                          <button 
+                            onClick={() => setConfirmAction({ type: 'approve', target: 'job', id: job.id })}
+                            className="text-xs font-bold text-primary hover:underline"
+                          >
+                            Reavaliar
+                          </button>
+                        </div>
+                      ))}
+                      {jobs.filter(j => j.status === 'rejected').length === 0 && (
+                        <p className="text-sm text-on-surface-variant italic">Nenhuma vaga recusada.</p>
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="space-y-4">
+                    <h2 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      Candidatos Recusados
+                    </h2>
+                    <div className="space-y-3">
+                      {candidates.filter(c => c.status === 'rejected').map(cand => (
+                        <div key={cand.id} className="p-4 bg-white rounded-2xl border border-outline-variant/10 shadow-sm flex justify-between items-center">
+                          <div className="flex items-center gap-3">
+                            <div className="relative w-8 h-8 rounded-lg overflow-hidden">
+                              <Image src={cand.image} alt={cand.name} fill className="object-cover" referrerPolicy="no-referrer" />
+                            </div>
+                            <div>
+                              <p className="font-bold text-on-surface">{cand.name}</p>
+                              <p className="text-xs text-on-surface-variant">{cand.role}</p>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => setConfirmAction({ type: 'approve', target: 'candidate', id: cand.id })}
+                            className="text-xs font-bold text-primary hover:underline"
+                          >
+                            Reavaliar
+                          </button>
+                        </div>
+                      ))}
+                      {candidates.filter(c => c.status === 'rejected').length === 0 && (
+                        <p className="text-sm text-on-surface-variant italic">Nenhum candidato recusado.</p>
+                      )}
+                    </div>
+                  </section>
+                </div>
+              </motion.div>
+            )}
+            
             {activeView === 'historico' && (
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
@@ -744,6 +947,8 @@ export default function Dashboard() {
                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-outline w-5 h-5" />
                       <input 
                         type="text" 
+                        value={talentSearch}
+                        onChange={(e) => setTalentSearch(e.target.value)}
                         placeholder="Buscar por nome ou competência..." 
                         className="w-full pl-12 pr-4 py-4 rounded-2xl border-none bg-surface-container-highest focus:bg-white focus:ring-2 focus:ring-primary/40 transition-all shadow-sm"
                       />
@@ -752,12 +957,13 @@ export default function Dashboard() {
                 </header>
 
                 <nav className="flex overflow-x-auto gap-4 pb-4 no-scrollbar">
-                  {['Todos os Talentos', 'Tecnologia', 'Saúde', 'Finanças', 'Engenharia & Arquitetura', 'Autônomos'].map((cat, i) => (
+                  {['Todos os Talentos', 'Tecnologia', 'Saúde', 'Finanças', 'Engenharia & Arquitetura', 'Autônomos'].map((cat) => (
                     <button 
                       key={cat}
+                      onClick={() => setTalentCategory(cat)}
                       className={cn(
                         "px-6 py-3 rounded-full font-semibold whitespace-nowrap transition-all",
-                        i === 0 ? "bg-primary text-on-primary shadow-lg shadow-primary/20" : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
+                        talentCategory === cat ? "bg-primary text-on-primary shadow-lg shadow-primary/20" : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
                       )}
                     >
                       {cat}
@@ -789,23 +995,29 @@ export default function Dashboard() {
                         ))}
                       </div>
                     </div>
-                    <div className="pt-6">
-                      <div className="relative w-full aspect-square rounded-2xl overflow-hidden shadow-lg">
-                        <Image src="https://picsum.photos/seed/featured/400/400" alt="Destaque" fill className="object-cover" referrerPolicy="no-referrer" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-6">
-                          <p className="text-white font-bold text-lg">Destaque do Mês</p>
-                        </div>
-                      </div>
-                      <div className="mt-4 p-4 rounded-2xl bg-secondary-container/10 border-l-4 border-secondary">
-                        <p className="text-secondary font-bold text-xs uppercase tracking-wider">História de Sucesso</p>
-                        <p className="text-on-surface-variant text-sm mt-1 italic leading-relaxed">&quot;Encontrei minha oportunidade ideal através da HumanConnect em menos de 2 semanas.&quot;</p>
-                      </div>
-                    </div>
                   </aside>
 
                   <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {candidates.filter(c => c.status === 'approved').map((cand) => (
-                      <div key={cand.id} className="bg-surface-container-low rounded-3xl p-6 hover:bg-white transition-all duration-300 border border-outline-variant/10">
+                    {candidates
+                      .filter(c => c.status === 'approved')
+                      .filter(c => talentCategory === 'Todos os Talentos' || c.area.includes(talentCategory) || (talentCategory === 'Tecnologia' && c.area.includes('Desenvolvimento')))
+                      .filter(c => c.name.toLowerCase().includes(talentSearch.toLowerCase()) || c.skills.some(s => s.toLowerCase().includes(talentSearch.toLowerCase())))
+                      .map((cand) => (
+                      <div key={cand.id} className="bg-surface-container-low rounded-3xl p-6 hover:bg-white transition-all duration-300 border border-outline-variant/10 group relative">
+                        <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={() => setEditingCandidate(cand)}
+                            className="p-2 bg-white rounded-full shadow-sm text-primary hover:bg-primary hover:text-white transition-all"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => setConfirmAction({ type: 'delete', target: 'candidate', id: cand.id })}
+                            className="p-2 bg-white rounded-full shadow-sm text-error hover:bg-error hover:text-white transition-all"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
                         <div className="flex gap-4 mb-6">
                           <div className="relative w-20 h-20 rounded-full overflow-hidden shadow-md">
                             <Image src={cand.image} alt={cand.name} fill className="object-cover" referrerPolicy="no-referrer" />
@@ -822,7 +1034,12 @@ export default function Dashboard() {
                             <MapPin className="w-3 h-3" />
                             {cand.location}
                           </div>
-                          <button className="text-primary font-bold text-sm hover:underline decoration-2 underline-offset-4">Ver Currículo</button>
+                          <button 
+                            onClick={() => setSelectedCandidate(cand)}
+                            className="text-primary font-bold text-sm hover:underline decoration-2 underline-offset-4"
+                          >
+                            Ver Currículo
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -831,6 +1048,67 @@ export default function Dashboard() {
                         Nenhum talento aprovado na galeria ainda.
                       </div>
                     )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeView === 'configuracoes' && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-8 max-w-4xl"
+              >
+                <header>
+                  <h1 className="text-3xl font-extrabold text-primary tracking-tight font-headline">Configurações do Sistema</h1>
+                  <p className="text-on-surface-variant mt-1">Gerencie as preferências globais da plataforma HumanConnect.</p>
+                </header>
+
+                <div className="grid grid-cols-1 gap-6">
+                  <section className="bg-white p-8 rounded-3xl border border-outline-variant/10 shadow-sm space-y-6">
+                    <h2 className="text-lg font-bold flex items-center gap-2">
+                      <Settings className="w-5 h-5 text-primary" />
+                      Geral
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-on-surface-variant uppercase">Nome da Plataforma</label>
+                        <input defaultValue="HumanConnect" className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-on-surface-variant uppercase">E-mail de Contato</label>
+                        <input defaultValue="contato@humanconnect.com.br" className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="bg-white p-8 rounded-3xl border border-outline-variant/10 shadow-sm space-y-6">
+                    <h2 className="text-lg font-bold flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-primary" />
+                      Segurança & Moderação
+                    </h2>
+                    <div className="space-y-4">
+                      <label className="flex items-center gap-3 cursor-pointer group">
+                        <input type="checkbox" defaultChecked className="rounded border-outline-variant text-primary focus:ring-primary w-5 h-5" />
+                        <div>
+                          <p className="font-bold text-on-surface">Aprovação Manual Obrigatória</p>
+                          <p className="text-xs text-on-surface-variant">Novas vagas e currículos devem ser aprovados por um administrador.</p>
+                        </div>
+                      </label>
+                      <label className="flex items-center gap-3 cursor-pointer group">
+                        <input type="checkbox" defaultChecked className="rounded border-outline-variant text-primary focus:ring-primary w-5 h-5" />
+                        <div>
+                          <p className="font-bold text-on-surface">Notificações Automáticas</p>
+                          <p className="text-xs text-on-surface-variant">Enviar e-mails automáticos após aprovação ou recusa.</p>
+                        </div>
+                      </label>
+                    </div>
+                  </section>
+
+                  <div className="flex justify-end">
+                    <button className="px-8 py-4 bg-primary text-on-primary rounded-2xl font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-all">
+                      Salvar Configurações
+                    </button>
                   </div>
                 </div>
               </motion.div>
@@ -993,14 +1271,14 @@ export default function Dashboard() {
                     </div>
                     <div className="grid grid-cols-2 gap-3 pt-4">
                       <button 
-                        onClick={() => rejectJob(selectedJob.id)}
+                        onClick={() => setConfirmAction({ type: 'reject', target: 'job', id: selectedJob.id })}
                         className="py-4 px-4 bg-error text-on-error rounded-2xl font-bold text-sm hover:brightness-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-error/20"
                       >
                         <XCircle className="w-5 h-5" />
                         Recusar
                       </button>
                       <button 
-                        onClick={() => approveJob(selectedJob.id)}
+                        onClick={() => setConfirmAction({ type: 'approve', target: 'job', id: selectedJob.id })}
                         className="py-4 px-4 bg-primary text-on-primary rounded-2xl font-bold text-sm hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95 flex items-center justify-center gap-2 bg-gradient-to-v from-primary to-primary-container"
                       >
                         <CheckCircle2 className="w-5 h-5" />
@@ -1074,14 +1352,14 @@ export default function Dashboard() {
                     </div>
                     <div className="flex gap-3">
                       <button 
-                        onClick={() => rejectCandidate(selectedCandidate.id)}
+                        onClick={() => setConfirmAction({ type: 'reject', target: 'candidate', id: selectedCandidate.id })}
                         className="flex-1 py-4 px-4 bg-error-container text-on-error-container hover:bg-error/10 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2"
                       >
                         <XCircle className="w-5 h-5" />
                         Recusar
                       </button>
                       <button 
-                        onClick={() => approveCandidate(selectedCandidate.id)}
+                        onClick={() => setConfirmAction({ type: 'approve', target: 'candidate', id: selectedCandidate.id })}
                         className="flex-1 py-4 px-4 bg-primary text-on-primary hover:shadow-lg hover:shadow-primary/30 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2 bg-gradient-to-v from-primary to-primary-container"
                       >
                         <CheckCircle2 className="w-5 h-5" />
@@ -1095,6 +1373,208 @@ export default function Dashboard() {
           </AnimatePresence>
         </div>
       </main>
+
+      {editingJob && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-3xl p-8 max-w-2xl w-full shadow-2xl border border-outline-variant/10"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-primary font-headline">Editar Vaga</h2>
+              <button onClick={() => setEditingJob(null)} className="p-2 hover:bg-surface-container rounded-full transition-colors">
+                <XCircle className="w-6 h-6 text-on-surface-variant" />
+              </button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const updatedJob = {
+                ...editingJob,
+                title: formData.get('title') as string,
+                company: formData.get('company') as string,
+                location: formData.get('location') as string,
+                type: formData.get('type') as string,
+                salary: formData.get('salary') as string,
+                description: formData.get('description') as string,
+                requirements: (formData.get('requirements') as string).split('\n').filter(r => r.trim()),
+              };
+              setConfirmAction({ type: 'edit', target: 'job', id: editingJob.id, payload: updatedJob });
+            }} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Título da Vaga</label>
+                  <input name="title" defaultValue={editingJob.title} required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Empresa</label>
+                  <input name="company" defaultValue={editingJob.company} required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Localização</label>
+                  <input name="location" defaultValue={editingJob.location} required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Tipo</label>
+                  <select name="type" defaultValue={editingJob.type} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none">
+                    <option>Tempo Integral</option>
+                    <option>Meio Período</option>
+                    <option>PJ / Freelance</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Salário</label>
+                  <input name="salary" defaultValue={editingJob.salary} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-on-surface-variant uppercase">Descrição</label>
+                <textarea name="description" defaultValue={editingJob.description} rows={3} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none"></textarea>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-on-surface-variant uppercase">Requisitos (um por linha)</label>
+                <textarea name="requirements" defaultValue={editingJob.requirements.join('\n')} rows={3} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none"></textarea>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button type="button" onClick={() => setEditingJob(null)} className="flex-1 py-3 px-4 bg-surface-container-highest text-on-surface rounded-xl font-bold hover:bg-surface-container transition-all">Cancelar</button>
+                <button type="submit" className="flex-1 py-3 px-4 bg-primary text-on-primary rounded-xl font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">Salvar Alterações</button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {editingCandidate && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-3xl p-8 max-w-2xl w-full shadow-2xl border border-outline-variant/10"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-primary font-headline">Editar Talento</h2>
+              <button onClick={() => setEditingCandidate(null)} className="p-2 hover:bg-surface-container rounded-full transition-colors">
+                <XCircle className="w-6 h-6 text-on-surface-variant" />
+              </button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const updatedCand = {
+                ...editingCandidate,
+                name: formData.get('name') as string,
+                location: formData.get('location') as string,
+                area: formData.get('area') as string,
+                role: formData.get('role') as string,
+                summary: formData.get('summary') as string,
+                skills: (formData.get('skills') as string).split(',').map(s => s.trim()).filter(s => s),
+              };
+              setConfirmAction({ type: 'edit', target: 'candidate', id: editingCandidate.id, payload: updatedCand });
+            }} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Nome Completo</label>
+                  <input name="name" defaultValue={editingCandidate.name} required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Localização</label>
+                  <input name="location" defaultValue={editingCandidate.location} required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Área</label>
+                  <input name="area" defaultValue={editingCandidate.area} required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Cargo</label>
+                  <input name="role" defaultValue={editingCandidate.role} required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-on-surface-variant uppercase">Resumo Profissional</label>
+                <textarea name="summary" defaultValue={editingCandidate.summary} rows={3} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none"></textarea>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-on-surface-variant uppercase">Competências (separadas por vírgula)</label>
+                <textarea name="skills" defaultValue={editingCandidate.skills.join(', ')} rows={2} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none"></textarea>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button type="button" onClick={() => setEditingCandidate(null)} className="flex-1 py-3 px-4 bg-surface-container-highest text-on-surface rounded-xl font-bold hover:bg-surface-container transition-all">Cancelar</button>
+                <button type="submit" className="flex-1 py-3 px-4 bg-primary text-on-primary rounded-xl font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">Salvar Alterações</button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {confirmAction && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl text-center border border-outline-variant/10"
+          >
+            <div className={cn(
+              "w-20 h-20 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-xl",
+              confirmAction.type === 'approve' ? "bg-tertiary/10 text-tertiary" : 
+              confirmAction.type === 'reject' ? "bg-error/10 text-error" :
+              confirmAction.type === 'delete' ? "bg-error text-white" : "bg-primary/10 text-primary"
+            )}>
+              {confirmAction.type === 'approve' ? <CheckCircle2 className="w-10 h-10" /> : 
+               confirmAction.type === 'reject' ? <XCircle className="w-10 h-10" /> :
+               confirmAction.type === 'delete' ? <Trash2 className="w-10 h-10" /> : <Edit className="w-10 h-10" />}
+            </div>
+            <h2 className="text-2xl font-extrabold text-on-surface mb-3 font-headline">
+              {confirmAction.type === 'approve' ? 'Confirmar Aprovação?' : 
+               confirmAction.type === 'reject' ? 'Confirmar Recusa?' :
+               confirmAction.type === 'delete' ? 'Confirmar Exclusão?' : 'Confirmar Alteração?'}
+            </h2>
+            <p className="text-on-surface-variant text-sm mb-8 leading-relaxed">
+              Você tem certeza que deseja {
+                confirmAction.type === 'approve' ? 'aprovar' : 
+                confirmAction.type === 'reject' ? 'recusar' :
+                confirmAction.type === 'delete' ? 'excluir permanentemente' : 'salvar as alterações deste'
+              } {confirmAction.target === 'job' ? 'vaga' : 'candidato'}? 
+              Esta ação será registrada no histórico do sistema.
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <button 
+                onClick={() => setConfirmAction(null)}
+                className="py-4 px-6 bg-surface-container-highest text-on-surface rounded-2xl font-bold text-sm hover:bg-surface-container transition-all active:scale-95"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={() => {
+                  if (confirmAction.target === 'job') {
+                    if (confirmAction.type === 'approve') approveJob(confirmAction.id);
+                    else if (confirmAction.type === 'reject') rejectJob(confirmAction.id);
+                    else if (confirmAction.type === 'delete') deleteJob(confirmAction.id);
+                    else if (confirmAction.type === 'edit') updateJob(confirmAction.payload);
+                  } else {
+                    if (confirmAction.type === 'approve') approveCandidate(confirmAction.id);
+                    else if (confirmAction.type === 'reject') rejectCandidate(confirmAction.id);
+                    else if (confirmAction.type === 'delete') deleteCandidate(confirmAction.id);
+                    else if (confirmAction.type === 'edit') updateCandidate(confirmAction.payload);
+                  }
+                }}
+                className={cn(
+                  "py-4 px-6 rounded-2xl font-bold text-sm transition-all active:scale-95 shadow-lg",
+                  confirmAction.type === 'approve' ? "bg-primary text-on-primary shadow-primary/20" : 
+                  confirmAction.type === 'delete' ? "bg-error text-on-error shadow-error/20" :
+                  confirmAction.type === 'reject' ? "bg-error text-on-error shadow-error/20" : "bg-primary text-on-primary shadow-primary/20"
+                )}
+              >
+                Confirmar
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Background Editorial Element */}
       <div className="fixed bottom-0 right-0 -z-10 opacity-5 pointer-events-none transform translate-x-1/4 translate-y-1/4 select-none">
