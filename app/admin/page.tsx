@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   XCircle,
   X,
+  Menu,
   Mail,
   ShieldCheck,
   ChevronLeft,
@@ -187,58 +188,90 @@ const MOCK_CANDIDATES: Candidate[] = [
 
 // --- Components ---
 
-const Sidebar = ({ activeView, setView }: { activeView: View, setView: (v: View) => void }) => (
-  <aside className="w-64 h-screen fixed left-0 top-0 bg-white border-r border-outline-variant/20 flex flex-col py-6 z-50">
-    <Link href="/" className="px-6 mb-10 flex items-center gap-3 hover:opacity-80 transition-opacity">
-      <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-on-primary shadow-lg shadow-primary/20">
-        <HeartHandshake className="w-6 h-6" />
-      </div>
-      <div>
-        <h2 className="text-xl font-bold text-primary leading-none font-headline">Corrente do Bem</h2>
-        <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mt-1">Painel Administrativo</p>
-      </div>
-    </Link>
+const Sidebar = ({ activeView, setView, isOpen, onClose }: { activeView: View, setView: (v: View) => void, isOpen: boolean, onClose: () => void }) => (
+  <>
+    {/* Mobile Overlay */}
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="fixed inset-0 bg-black/40 z-[60] lg:hidden backdrop-blur-sm"
+        />
+      )}
+    </AnimatePresence>
 
-    <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
-      {[
-        { id: 'vagas', label: 'Vagas Pendentes', icon: <Clock className="w-5 h-5" /> },
-        { id: 'curriculos', label: 'Currículos Pendentes', icon: <FileText className="w-5 h-5" /> },
-        { id: 'galeria_vagas', label: 'Galeria de Vagas', icon: <Briefcase className="w-5 h-5" /> },
-        { id: 'galeria', label: 'Galeria de Talentos', icon: <LayoutGrid className="w-5 h-5" /> },
-        { id: 'recusados', label: 'Recusados', icon: <XCircle className="w-5 h-5" /> },
-        { id: 'historico', label: 'Histórico', icon: <History className="w-5 h-5" /> },
-        { id: 'configuracoes', label: 'Configurações', icon: <Settings className="w-5 h-5" /> },
-      ].map((item) => (
-        <button
-          key={item.id}
-          onClick={() => setView(item.id as View)}
-          className={cn(
-            "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
-            activeView === item.id 
-              ? "bg-primary/5 text-primary font-bold border-r-4 border-primary" 
-              : "text-on-surface-variant hover:bg-surface-container-low"
-          )}
-        >
-          <span className={cn("transition-transform group-hover:scale-110", activeView === item.id && "text-primary")}>
-            {item.icon}
-          </span>
-          <span className="text-sm">{item.label}</span>
+    <aside className={cn(
+      "w-64 h-screen fixed left-0 top-0 bg-white border-r border-outline-variant/20 flex flex-col py-6 z-[70] transition-transform duration-300 lg:translate-x-0",
+      isOpen ? "translate-x-0" : "-translate-x-full"
+    )}>
+      <div className="flex items-center justify-between px-6 mb-10">
+        <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-on-primary shadow-lg shadow-primary/20">
+            <HeartHandshake className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-primary leading-none font-headline">Corrente do Bem</h2>
+            <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mt-1">Painel Administrativo</p>
+          </div>
+        </Link>
+        <button onClick={onClose} className="lg:hidden p-2 text-on-surface-variant hover:text-primary transition-colors">
+          <X className="w-6 h-6" />
         </button>
-      ))}
-    </nav>
-
-    <div className="px-6 mt-auto">
-      <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 text-center">
-        <p className="text-[10px] uppercase tracking-widest text-primary font-bold">Sistema Ativo</p>
       </div>
-    </div>
-  </aside>
+
+      <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
+        {[
+          { id: 'vagas', label: 'Vagas Pendentes', icon: <Clock className="w-5 h-5" /> },
+          { id: 'curriculos', label: 'Currículos Pendentes', icon: <FileText className="w-5 h-5" /> },
+          { id: 'galeria_vagas', label: 'Galeria de Vagas', icon: <Briefcase className="w-5 h-5" /> },
+          { id: 'galeria', label: 'Galeria de Talentos', icon: <LayoutGrid className="w-5 h-5" /> },
+          { id: 'recusados', label: 'Recusados', icon: <XCircle className="w-5 h-5" /> },
+          { id: 'historico', label: 'Histórico', icon: <History className="w-5 h-5" /> },
+          { id: 'configuracoes', label: 'Configurações', icon: <Settings className="w-5 h-5" /> },
+        ].map((item) => (
+          <button
+            key={item.id}
+            onClick={() => {
+              setView(item.id as View);
+              if (window.innerWidth < 1024) onClose();
+            }}
+            className={cn(
+              "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
+              activeView === item.id 
+                ? "bg-primary/5 text-primary font-bold border-r-4 border-primary" 
+                : "text-on-surface-variant hover:bg-surface-container-low"
+            )}
+          >
+            <span className={cn("transition-transform group-hover:scale-110", activeView === item.id && "text-primary")}>
+              {item.icon}
+            </span>
+            <span className="text-sm">{item.label}</span>
+          </button>
+        ))}
+      </nav>
+
+      <div className="px-6 mt-auto">
+        <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 text-center">
+          <p className="text-[10px] uppercase tracking-widest text-primary font-bold">Sistema Ativo</p>
+        </div>
+      </div>
+    </aside>
+  </>
 );
 
-const Header = () => (
-  <header className="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 z-40 bg-white/80 backdrop-blur-md border-b border-outline-variant/10 flex justify-between items-center px-8">
-    <div className="flex items-center w-full max-w-md">
-      <div className="relative w-full">
+const Header = ({ onMenuOpen }: { onMenuOpen: () => void }) => (
+  <header className="fixed top-0 right-0 w-full lg:w-[calc(100%-16rem)] h-16 z-40 bg-white/80 backdrop-blur-md border-b border-outline-variant/10 flex justify-between items-center px-4 lg:px-8">
+    <div className="flex items-center gap-4 w-full max-w-md">
+      <button 
+        onClick={onMenuOpen}
+        className="lg:hidden p-2 text-on-surface-variant hover:text-primary transition-colors rounded-full hover:bg-surface-container-low"
+      >
+        <Menu className="w-6 h-6" />
+      </button>
+      <div className="relative w-full hidden sm:block">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-outline w-4 h-4" />
         <input 
           type="text" 
@@ -247,15 +280,15 @@ const Header = () => (
         />
       </div>
     </div>
-    <div className="flex items-center gap-6">
+    <div className="flex items-center gap-2 lg:gap-6">
       <button className="relative p-2 text-on-surface-variant hover:text-primary transition-colors rounded-full hover:bg-surface-container-low">
         <Bell className="w-5 h-5" />
         <span className="absolute top-2 right-2 w-2 h-2 bg-secondary rounded-full border-2 border-white"></span>
       </button>
-      <div className="h-8 w-[1px] bg-outline-variant/30"></div>
-      <Link href="/" className="flex items-center gap-2 px-4 py-2 rounded-full hover:bg-surface-container-low transition-all group">
-        <span className="text-sm font-semibold text-primary">Site Principal</span>
-        <ExternalLink className="w-5 h-5 text-primary group-hover:translate-x-1 transition-transform duration-300" />
+      <div className="hidden sm:block h-8 w-[1px] bg-outline-variant/30"></div>
+      <Link href="/" className="flex items-center gap-2 px-3 lg:px-4 py-2 rounded-full hover:bg-surface-container-low transition-all group">
+        <span className="text-xs lg:text-sm font-semibold text-primary">Site</span>
+        <ExternalLink className="w-4 h-4 lg:w-5 lg:h-5 text-primary group-hover:translate-x-1 transition-transform duration-300" />
       </Link>
     </div>
   </header>
@@ -263,6 +296,7 @@ const Header = () => (
 
 export default function Dashboard() {
   const [activeView, setView] = useState<View>('vagas');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -599,14 +633,14 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen flex">
-      <Sidebar activeView={activeView} setView={setView} />
+      <Sidebar activeView={activeView} setView={setView} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       
-      <main className="ml-64 pt-16 flex-1 flex flex-col">
-        <Header />
+      <main className="lg:ml-64 pt-16 flex-1 flex flex-col w-full">
+        <Header onMenuOpen={() => setIsSidebarOpen(true)} />
         
         <div className="flex-1 flex overflow-hidden">
           {/* Content Area */}
-          <div className="flex-1 p-8 overflow-y-auto relative">
+          <div className="flex-1 p-4 lg:p-8 overflow-y-auto relative">
             {isLoading && (
               <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-40 flex items-center justify-center">
                 <div className="flex flex-col items-center gap-3">
@@ -634,8 +668,8 @@ export default function Dashboard() {
                   </div>
                 </header>
 
-                <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-outline-variant/10">
-                  <table className="w-full text-left border-collapse">
+                <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-outline-variant/10 overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[600px]">
                     <thead className="bg-surface-container-low border-b border-outline-variant/10">
                       <tr>
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Vaga / Cargo</th>
@@ -727,8 +761,8 @@ export default function Dashboard() {
                   </div>
                 </header>
 
-                <div className="bg-white rounded-2xl p-2 shadow-sm border border-outline-variant/10">
-                  <table className="w-full text-left border-separate border-spacing-y-2 px-2">
+                <div className="bg-white rounded-2xl p-2 shadow-sm border border-outline-variant/10 overflow-x-auto">
+                  <table className="w-full text-left border-separate border-spacing-y-2 px-2 min-w-[600px]">
                     <thead className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">
                       <tr>
                         <th className="px-4 py-4">Candidato</th>
@@ -1226,14 +1260,14 @@ export default function Dashboard() {
           </div>
 
           {isAddingJob && (
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
               <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-white rounded-3xl p-8 max-w-2xl w-full shadow-2xl border border-outline-variant/10"
+                className="bg-white rounded-3xl p-6 lg:p-8 max-w-2xl w-full shadow-2xl border border-outline-variant/10 max-h-[90vh] overflow-y-auto"
               >
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-primary font-headline">Cadastrar Nova Vaga</h2>
+                  <h2 className="text-xl lg:text-2xl font-bold text-primary font-headline">Cadastrar Nova Vaga</h2>
                   <button onClick={() => setIsAddingJob(false)} className="p-2 hover:bg-surface-container rounded-full transition-colors">
                     <XCircle className="w-6 h-6 text-on-surface-variant" />
                   </button>
@@ -1252,7 +1286,7 @@ export default function Dashboard() {
                     requirements: (formData.get('requirements') as string).split('\n').filter(r => r.trim()),
                   });
                 }} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-on-surface-variant uppercase">Título da Vaga</label>
                       <input name="title" required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Ex: Desenvolvedor React" />
@@ -1316,10 +1350,10 @@ export default function Dashboard() {
             {(activeView === 'vagas' && selectedJob) && (
               <motion.aside 
                 key={`job-${selectedJob.id}`}
-                initial={{ x: 450 }}
+                initial={{ x: '100%' }}
                 animate={{ x: 0 }}
-                exit={{ x: 450 }}
-                className="w-[450px] bg-white border-l border-outline-variant/10 p-8 overflow-y-auto shadow-2xl relative z-30"
+                exit={{ x: '100%' }}
+                className="fixed lg:relative top-0 right-0 w-full lg:w-[450px] h-full bg-white border-l border-outline-variant/10 p-6 lg:p-8 overflow-y-auto shadow-2xl z-[80] lg:z-30"
               >
                 <div className="flex justify-between items-start mb-6">
                   <button 
@@ -1418,24 +1452,24 @@ export default function Dashboard() {
             {(selectedCandidate && (activeView === 'curriculos' || activeView === 'galeria')) && (
               <motion.aside 
                 key={`candidate-${selectedCandidate.id}`}
-                initial={{ x: 450 }}
+                initial={{ x: '100%' }}
                 animate={{ x: 0 }}
-                exit={{ x: 450 }}
-                className="w-[450px] bg-white border-l border-outline-variant/10 p-8 overflow-y-auto shadow-2xl relative z-30"
+                exit={{ x: '100%' }}
+                className="fixed lg:relative top-0 right-0 w-full lg:w-[450px] h-full bg-white border-l border-outline-variant/10 p-6 lg:p-8 overflow-y-auto shadow-2xl z-[80] lg:z-30"
               >
                 <div className="flex justify-between items-start mb-8">
                   <div className="flex gap-4">
-                    <div className="relative w-20 h-20 rounded-2xl overflow-hidden shadow-xl">
+                    <div className="relative w-16 lg:w-20 h-16 lg:h-20 rounded-2xl overflow-hidden shadow-xl">
                       <Image src={selectedCandidate.image} alt={selectedCandidate.name} fill className="object-cover" referrerPolicy="no-referrer" />
                       {selectedCandidate.verified && (
-                        <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-tertiary-fixed flex items-center justify-center border-4 border-white">
-                          <Verified className="w-4 h-4 text-on-tertiary-fixed fill-current" />
+                        <div className="absolute -bottom-1 -right-1 w-6 h-6 lg:w-7 lg:h-7 rounded-full bg-tertiary-fixed flex items-center justify-center border-2 lg:border-4 border-white">
+                          <Verified className="w-3 h-3 lg:w-4 lg:h-4 text-on-tertiary-fixed fill-current" />
                         </div>
                       )}
                     </div>
                     <div>
-                      <h3 className="text-2xl font-extrabold text-on-surface leading-tight font-headline">{selectedCandidate.name}</h3>
-                      <p className="text-on-surface-variant font-medium text-sm">{selectedCandidate.role}</p>
+                      <h3 className="text-xl lg:text-2xl font-extrabold text-on-surface leading-tight font-headline">{selectedCandidate.name}</h3>
+                      <p className="text-on-surface-variant font-medium text-xs lg:text-sm">{selectedCandidate.role}</p>
                       <div className="flex gap-3 mt-3">
                         <ExternalLink className="w-4 h-4 text-primary cursor-pointer hover:scale-110 transition-transform" />
                         <Share2 className="w-4 h-4 text-primary cursor-pointer hover:scale-110 transition-transform" />
@@ -1504,10 +1538,10 @@ export default function Dashboard() {
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-3xl p-8 max-w-2xl w-full shadow-2xl border border-outline-variant/10"
+            className="bg-white rounded-3xl p-6 lg:p-8 max-w-2xl w-full shadow-2xl border border-outline-variant/10 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-primary font-headline">Editar Vaga</h2>
+              <h2 className="text-xl lg:text-2xl font-bold text-primary font-headline">Editar Vaga</h2>
               <button onClick={() => setEditingJob(null)} className="p-2 hover:bg-surface-container rounded-full transition-colors">
                 <XCircle className="w-6 h-6 text-on-surface-variant" />
               </button>
@@ -1528,7 +1562,7 @@ export default function Dashboard() {
               };
               setConfirmAction({ type: 'edit', target: 'job', id: editingJob.id, payload: updatedJob });
             }} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-on-surface-variant uppercase">Título da Vaga</label>
                   <input name="title" defaultValue={editingJob.title} required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
@@ -1592,10 +1626,10 @@ export default function Dashboard() {
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-3xl p-8 max-w-2xl w-full shadow-2xl border border-outline-variant/10"
+            className="bg-white rounded-3xl p-6 lg:p-8 max-w-2xl w-full shadow-2xl border border-outline-variant/10 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-primary font-headline">Editar Talento</h2>
+              <h2 className="text-xl lg:text-2xl font-bold text-primary font-headline">Editar Talento</h2>
               <button onClick={() => setEditingCandidate(null)} className="p-2 hover:bg-surface-container rounded-full transition-colors">
                 <XCircle className="w-6 h-6 text-on-surface-variant" />
               </button>
@@ -1614,7 +1648,7 @@ export default function Dashboard() {
               };
               setConfirmAction({ type: 'edit', target: 'candidate', id: editingCandidate.id, payload: updatedCand });
             }} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-on-surface-variant uppercase">Nome Completo</label>
                   <input name="name" defaultValue={editingCandidate.name} required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
@@ -1656,10 +1690,10 @@ export default function Dashboard() {
           <motion.div 
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl text-center border border-outline-variant/10"
+            className="bg-white rounded-[2rem] lg:rounded-[2.5rem] p-6 lg:p-10 max-w-md w-full shadow-2xl text-center border border-outline-variant/10"
           >
             <div className={cn(
-              "w-20 h-20 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-xl",
+              "w-16 lg:w-20 h-16 lg:h-20 rounded-2xl lg:rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-xl",
               confirmAction.type === 'approve' ? "bg-tertiary/10 text-tertiary" : 
               confirmAction.type === 'reject' ? "bg-error/10 text-error" :
               confirmAction.type === 'delete' ? "bg-error text-white" : "bg-primary/10 text-primary"
