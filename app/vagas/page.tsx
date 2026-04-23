@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { 
   Search, 
   MapPin, 
@@ -17,7 +18,7 @@ import {
   Hammer,
   Building2,
   Menu,
-  HeartHandshake
+  Handshake
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/lib/supabase';
@@ -39,12 +40,21 @@ interface Job {
   created_at?: string;
 }
 
-export default function VagasPage() {
+function VagasContent() {
+  const searchParams = useSearchParams();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [selectedCategory, setSelectedCategory] = useState('Todas');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const search = searchParams.get('search');
+    if (search && search !== searchTerm) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSearchTerm(search);
+    }
+  }, [searchParams, searchTerm]);
 
   const categories = [
     { name: 'Todas', icon: <Briefcase className="w-5 h-5" /> },
@@ -65,6 +75,13 @@ export default function VagasPage() {
         .eq('status', 'active')
         .order('created_at', { ascending: false });
 
+      if (error) {
+        console.error('Erro ao buscar vagas:', {
+          code: error.code,
+          message: error.message,
+          details: error.details
+        });
+      }
       if (data) setJobs(data);
       setIsLoading(false);
     }
@@ -84,10 +101,10 @@ export default function VagasPage() {
       <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-[#bec8d1]/10">
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-20 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-10 h-10 bg-[#00628c] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#00628c]/20 group-hover:scale-110 transition-transform">
-              <HeartHandshake className="w-6 h-6" />
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-[#00628c] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#00628c]/20 group-hover:scale-110 transition-transform">
+              <Handshake className="w-5 h-5 md:w-6 md:h-6" />
             </div>
-            <span className="text-xl font-bold text-[#00628c] font-headline">Corrente do Bem</span>
+            <span className="text-xl md:text-2xl font-bold text-[#00628c] font-headline tracking-tighter">Corrente do Bem</span>
           </Link>
 
           <div className="hidden md:flex items-center gap-8">
@@ -98,7 +115,7 @@ export default function VagasPage() {
 
           <div className="flex items-center gap-4">
             <button className="hidden sm:block px-6 py-2 text-[#00628c] font-bold hover:bg-[#f6f3f2] rounded-full transition-all">Entrar</button>
-            <button className="px-6 py-2 bg-[#00628c] text-white font-bold rounded-full shadow-sm hover:scale-95 transition-transform">Cadastrar</button>
+            <Link href="/vagas/cadastrar" className="px-6 py-2 bg-[#00628c] text-white font-bold rounded-full shadow-sm hover:scale-95 transition-transform text-center">Cadastrar</Link>
             <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden p-2 text-[#3e4850]">
               <Menu className="w-6 h-6" />
             </button>
@@ -248,8 +265,20 @@ export default function VagasPage() {
             ) : (
               <div className="text-center py-20 bg-white rounded-[2.5rem] border border-dashed border-[#bec8d1]">
                 <Briefcase className="w-16 h-16 text-[#bec8d1] mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-[#1b1c1c] mb-2">Nenhuma vaga encontrada</h3>
-                <p className="text-[#3e4850]">Tente ajustar seus filtros ou busca.</p>
+                <h3 className="text-xl font-bold text-[#1b1c1c] mb-2">
+                  {searchTerm ? 'Vaga não encontrada' : 'Nenhuma vaga ativa'}
+                </h3>
+                <p className="text-[#3e4850]">
+                  {searchTerm 
+                    ? `Não encontramos nenhuma vaga que corresponda ao termo "${searchTerm}".` 
+                    : 'Ainda não há vagas aprovadas disponíveis. Use o Painel Adm para aprovar vagas pendentes.'}
+                </p>
+                <button 
+                  onClick={() => setSearchTerm('')}
+                  className="mt-6 px-8 py-3 bg-[#00628c] text-white font-bold rounded-xl active:scale-95 transition-all shadow-lg shadow-[#00628c]/20"
+                >
+                  Ver todas as vagas
+                </button>
               </div>
             )}
 
@@ -272,7 +301,7 @@ export default function VagasPage() {
             <div className="col-span-1 lg:col-span-2">
               <Link href="/" className="flex items-center gap-2 mb-6">
                 <div className="w-8 h-8 bg-[#00628c] rounded-lg flex items-center justify-center text-white">
-                  <HeartHandshake className="w-5 h-5" />
+                  <Handshake className="w-5 h-5" />
                 </div>
                 <span className="text-xl font-bold text-[#00628c] font-headline">Corrente do Bem</span>
               </Link>
@@ -304,5 +333,17 @@ export default function VagasPage() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function VagasPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#fcf9f8] flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-[#00628c]/20 border-t-[#00628c] rounded-full animate-spin"></div>
+      </div>
+    }>
+      <VagasContent />
+    </Suspense>
   );
 }

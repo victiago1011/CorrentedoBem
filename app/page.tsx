@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Search, 
   Heart, 
@@ -23,15 +24,28 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 export default function LandingPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'candidatos' | 'empresas'>('candidatos');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
+
+  const handleSearch = () => {
+    if (searchValue.trim()) {
+      router.push(`/vagas?search=${encodeURIComponent(searchValue.trim())}`);
+    } else {
+      router.push('/vagas');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#fcf9f8] text-[#1b1c1c] font-body selection:bg-[#00628c]/20 selection:text-[#00628c]">
       {/* TopNavBar */}
       <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50 border-b border-[#bec8d1]/20">
         <nav className="flex justify-between items-center px-4 md:px-8 py-4 max-w-7xl mx-auto">
-          <Link href="/" className="text-xl md:text-2xl font-bold text-[#00628c] tracking-tighter font-headline">
+          <Link href="/" className="flex items-center gap-2 text-xl md:text-2xl font-bold text-[#00628c] tracking-tighter font-headline group">
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-[#00628c] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#00628c]/20 group-hover:scale-110 transition-transform">
+              <Handshake className="w-5 h-5 md:w-6 md:h-6" />
+            </div>
             Corrente do Bem
           </Link>
           
@@ -48,7 +62,7 @@ export default function LandingPage() {
               <Link href="/vagas" className="px-3 md:px-5 py-2 text-sm font-semibold text-[#00628c] hover:bg-[#f6f3f2] rounded-full transition-all">
                 Entrar
               </Link>
-              <Link href="/vagas" className="px-3 md:px-5 py-2 text-sm font-semibold bg-[#00628c] text-white rounded-full shadow-sm hover:scale-95 transition-transform duration-150">
+              <Link href="/vagas/cadastrar" className="px-3 md:px-5 py-2 text-sm font-semibold bg-[#00628c] text-white rounded-full shadow-sm hover:scale-95 transition-transform duration-150">
                 Cadastrar-se
               </Link>
             </div>
@@ -81,7 +95,7 @@ export default function LandingPage() {
                   <Link onClick={() => setIsMenuOpen(false)} href="/vagas" className="w-full py-3 text-center text-[#00628c] font-bold border border-[#00628c] rounded-xl">
                     Entrar
                   </Link>
-                  <Link onClick={() => setIsMenuOpen(false)} href="/vagas" className="w-full py-3 text-center bg-[#00628c] text-white font-bold rounded-xl">
+                  <Link onClick={() => setIsMenuOpen(false)} href="/vagas/cadastrar" className="w-full py-3 text-center bg-[#00628c] text-white font-bold rounded-xl">
                     Cadastrar-se
                   </Link>
                 </div>
@@ -114,12 +128,18 @@ export default function LandingPage() {
                 <div className="flex-1 flex items-center px-4 gap-3 bg-[#f6f3f2] rounded-xl">
                   <Search className="w-5 h-5 text-[#6f7881]" />
                   <input 
-                    className="w-full bg-transparent border-none focus:ring-0 py-4 text-[#1b1c1c] placeholder-[#6f7881] text-sm md:text-base" 
+                    className="w-full bg-transparent border-none focus:ring-0 outline-none py-4 text-[#1b1c1c] placeholder-[#6f7881] text-sm md:text-base" 
                     placeholder="Procure por 'vagas' ou 'talentos'..." 
                     type="text"
+                    value={searchValue}
+                    onChange={(e) => setSearchValue(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                   />
                 </div>
-                <button className="bg-[#00628c] hover:bg-[#004c6d] text-white px-8 py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
+                <button 
+                  onClick={handleSearch}
+                  className="bg-[#00628c] hover:bg-[#004c6d] text-white px-8 py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 active:scale-95"
+                >
                   <span>Pesquisar</span>
                 </button>
               </div>
@@ -483,10 +503,10 @@ export default function LandingPage() {
                 <h2 className="text-3xl lg:text-5xl font-extrabold mb-6 font-headline">Pronto para fazer parte desta corrente?</h2>
                 <p className="text-base lg:text-lg opacity-90 mb-8 lg:mb-10 leading-relaxed">Seja você um profissional em busca de espaço ou uma empresa querendo transformar vidas, seu lugar é aqui.</p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Link href="/talentos" className="bg-white text-[#00628c] px-8 lg:px-10 py-3 lg:py-4 rounded-2xl font-bold text-base lg:text-lg hover:scale-105 transition-transform shadow-lg">
+                  <Link href="/talentos/cadastrar" className="bg-white text-[#00628c] px-8 lg:px-10 py-3 lg:py-4 rounded-2xl font-bold text-base lg:text-lg hover:scale-105 transition-transform shadow-lg">
                     Cadastrar Currículo
                   </Link>
-                  <Link href="/vagas" className="bg-[#bff444] text-[#141f00] px-8 lg:px-10 py-3 lg:py-4 rounded-2xl font-bold text-base lg:text-lg hover:scale-105 transition-transform shadow-lg">
+                  <Link href="/vagas/cadastrar" className="bg-[#bff444] text-[#141f00] px-8 lg:px-10 py-3 lg:py-4 rounded-2xl font-bold text-base lg:text-lg hover:scale-105 transition-transform shadow-lg">
                     Anunciar uma Vaga
                   </Link>
                 </div>

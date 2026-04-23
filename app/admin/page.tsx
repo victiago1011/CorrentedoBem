@@ -28,10 +28,11 @@ import {
   MapPin,
   Clock,
   Zap,
-  HeartHandshake,
+  Handshake,
   Loader2,
   Edit,
-  Trash2
+  Trash2,
+  Phone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -48,6 +49,8 @@ interface Job {
   id: string;
   title: string;
   company: string;
+  email?: string;
+  phone?: string;
   location: string;
   type: string;
   area: string;
@@ -64,6 +67,8 @@ interface Job {
 interface Candidate {
   id: string;
   name: string;
+  email?: string;
+  phone?: string;
   location: string;
   area: string;
   date?: string;
@@ -73,6 +78,7 @@ interface Candidate {
   summary: string;
   skills: string[];
   image: string;
+  resume_url?: string;
   verified?: boolean;
   created_at?: string;
 }
@@ -209,12 +215,12 @@ const Sidebar = ({ activeView, setView, isOpen, onClose }: { activeView: View, s
     )}>
       <div className="flex items-center justify-between px-6 mb-10">
         <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-on-primary shadow-lg shadow-primary/20">
-            <HeartHandshake className="w-6 h-6" />
+          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-on-primary shadow-lg shadow-primary/20 transition-transform hover:scale-105">
+            <Handshake className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-primary leading-none font-headline">Corrente do Bem</h2>
-            <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mt-1">Painel Administrativo</p>
+            <h2 className="text-xl font-bold text-primary leading-none font-headline tracking-tighter">Corrente do Bem</h2>
+            <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-black mt-1">Painel Adm</p>
           </div>
         </Link>
         <button onClick={onClose} className="lg:hidden p-2 text-on-surface-variant hover:text-primary transition-colors">
@@ -1385,6 +1391,23 @@ export default function Dashboard() {
                       <p className="text-sm font-bold">{selectedJob.salary}</p>
                     </div>
                   </div>
+
+                  {/* Contact Info */}
+                  <div className="mt-4 p-4 bg-surface-container-low rounded-2xl border border-outline-variant/5">
+                    <p className="text-[10px] uppercase font-bold text-on-surface-variant mb-2">Contato da Empresa</p>
+                    <div className="space-y-2">
+                       <p className="text-sm font-medium flex items-center gap-2">
+                         <Mail className="w-4 h-4 text-primary" />
+                         {selectedJob.email || 'Não informado'}
+                       </p>
+                       {selectedJob.phone && (
+                         <p className="text-sm font-medium flex items-center gap-2">
+                           <Phone className="w-4 h-4 text-primary" />
+                           {selectedJob.phone}
+                         </p>
+                       )}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-8 mb-10">
@@ -1485,6 +1508,34 @@ export default function Dashboard() {
                   <section>
                     <h4 className="text-xs font-bold uppercase tracking-widest text-secondary mb-3">Resumo do Perfil</h4>
                     <p className="text-on-surface-variant text-sm leading-relaxed">{selectedCandidate.summary}</p>
+                  </section>
+                  <section>
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-secondary mb-3">Informações de Contato</h4>
+                    <div className="space-y-2">
+                       {selectedCandidate.email && (
+                          <div className="flex items-center gap-2 text-sm text-on-surface-variant">
+                             <Mail className="w-4 h-4" />
+                             {selectedCandidate.email}
+                          </div>
+                       )}
+                       {selectedCandidate.phone && (
+                          <div className="flex items-center gap-2 text-sm text-on-surface-variant">
+                             <Phone className="w-4 h-4" />
+                             {selectedCandidate.phone}
+                          </div>
+                       )}
+                       {selectedCandidate.resume_url && (
+                          <a 
+                            href={selectedCandidate.resume_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 p-3 bg-primary/5 text-primary text-sm font-bold rounded-xl border border-primary/10 hover:bg-primary/10 transition-colors mt-4"
+                          >
+                             <FileText className="w-4 h-4" />
+                             Ver Currículo Anexado
+                          </a>
+                       )}
+                    </div>
                   </section>
                   <section>
                     <h4 className="text-xs font-bold uppercase tracking-widest text-secondary mb-3">Competências Principais</h4>

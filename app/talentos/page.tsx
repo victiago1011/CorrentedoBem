@@ -17,7 +17,7 @@ import {
   Hammer,
   Building2,
   Menu,
-  HeartHandshake,
+  Handshake,
   Bookmark,
   ExternalLink,
   Share2,
@@ -67,6 +67,13 @@ export default function TalentosPage() {
         .eq('status', 'approved')
         .order('created_at', { ascending: false });
 
+      if (error) {
+        console.error('Erro ao buscar candidatos:', {
+          code: error.code,
+          message: error.message,
+          details: error.details
+        });
+      }
       if (data) setCandidates(data);
       setIsLoading(false);
     }
@@ -87,10 +94,10 @@ export default function TalentosPage() {
       <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-[#bec8d1]/10">
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-20 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-10 h-10 bg-[#00628c] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#00628c]/20 group-hover:scale-110 transition-transform">
-              <HeartHandshake className="w-6 h-6" />
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-[#00628c] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#00628c]/20 group-hover:scale-110 transition-transform">
+              <Handshake className="w-5 h-5 md:w-6 md:h-6" />
             </div>
-            <span className="text-xl font-bold text-[#00628c] font-headline">Corrente do Bem</span>
+            <span className="text-xl md:text-2xl font-bold text-[#00628c] font-headline tracking-tighter">Corrente do Bem</span>
           </Link>
 
           <div className="hidden md:flex items-center gap-8">
@@ -101,7 +108,7 @@ export default function TalentosPage() {
 
           <div className="flex items-center gap-4">
             <button className="hidden sm:block px-6 py-2 text-[#00628c] font-bold hover:bg-[#f6f3f2] rounded-full transition-all">Entrar</button>
-            <button className="px-6 py-2 bg-[#00628c] text-white font-bold rounded-full shadow-sm hover:scale-95 transition-transform">Cadastrar</button>
+            <Link href="/talentos/cadastrar" className="px-6 py-2 bg-[#00628c] text-white font-bold rounded-full shadow-sm hover:scale-95 transition-transform text-center">Cadastrar</Link>
             <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden p-2 text-[#3e4850]">
               <Menu className="w-6 h-6" />
             </button>
@@ -265,8 +272,22 @@ export default function TalentosPage() {
             ) : (
               <div className="text-center py-20 bg-white rounded-[2.5rem] border border-dashed border-[#bec8d1]">
                 <LayoutGrid className="w-16 h-16 text-[#bec8d1] mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-[#1b1c1c] mb-2">Nenhum talento encontrado</h3>
-                <p className="text-[#3e4850]">Tente ajustar seus filtros ou busca.</p>
+                <h3 className="text-xl font-bold text-[#1b1c1c] mb-2">
+                  {searchTerm ? 'Talento não encontrado' : 'Nenhum talento aprovado'}
+                </h3>
+                <p className="text-[#3e4850]">
+                  {searchTerm 
+                    ? `Não encontramos talentos com o termo "${searchTerm}".` 
+                    : 'Ainda não há talentos aprovados disponíveis. Use o Painel Adm para aprovar perfis pendentes.'}
+                </p>
+                {searchTerm && (
+                  <button 
+                    onClick={() => setSearchTerm('')}
+                    className="mt-6 px-8 py-3 bg-[#00628c] text-white font-bold rounded-xl active:scale-95 transition-all shadow-lg shadow-[#00628c]/20"
+                  >
+                    Ver todos os talentos
+                  </button>
+                )}
               </div>
             )}
 
@@ -293,7 +314,7 @@ export default function TalentosPage() {
             <div className="col-span-1 lg:col-span-2">
               <Link href="/" className="flex items-center gap-2 mb-6">
                 <div className="w-8 h-8 bg-[#00628c] rounded-lg flex items-center justify-center text-white">
-                  <HeartHandshake className="w-5 h-5" />
+                  <Handshake className="w-5 h-5" />
                 </div>
                 <span className="text-xl font-bold text-[#00628c] font-headline">Corrente do Bem</span>
               </Link>
