@@ -7,7 +7,9 @@ import {
   Clock, 
   LayoutGrid, 
   ChevronLeft, 
-  ChevronRight, 
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Filter,
   X,
   CreditCard,
@@ -24,9 +26,11 @@ import {
   Verified
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import Image from 'next/image';
+import { Navbar } from '@/app/components/Navbar';
 
 interface Candidate {
   id: string;
@@ -47,7 +51,8 @@ export default function TalentosPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todos os Talentos');
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
 
   const categories = [
     'Todos os Talentos',
@@ -88,33 +93,17 @@ export default function TalentosPage() {
     return matchesSearch && matchesCategory;
   });
 
+  const totalPages = Math.ceil(filteredCandidates.length / itemsPerPage);
+  const paginatedCandidates = filteredCandidates.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCurrentPage(1);
+  }, [searchTerm, selectedCategory]);
+
   return (
     <div className="min-h-screen bg-[#fcf9f8] font-body">
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-[#bec8d1]/10">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 h-20 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 md:w-10 md:h-10 bg-[#00628c] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#00628c]/20 group-hover:scale-110 transition-transform">
-              <Handshake className="w-5 h-5 md:w-6 md:h-6" />
-            </div>
-            <span className="text-xl md:text-2xl font-bold text-[#00628c] font-headline tracking-tighter">Corrente do Bem</span>
-          </Link>
-
-          <div className="hidden md:flex items-center gap-8">
-            <Link href="/vagas" className="text-[#3e4850] hover:text-[#00628c] font-medium transition-colors">Vagas</Link>
-            <Link href="/talentos" className="text-[#00628c] font-bold border-b-2 border-[#00628c] pb-1">Talentos</Link>
-            <Link href="/#comunidade" className="text-[#3e4850] hover:text-[#00628c] font-medium transition-colors">Comunidade</Link>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button className="hidden sm:block px-6 py-2 text-[#00628c] font-bold hover:bg-[#f6f3f2] rounded-full transition-all">Entrar</button>
-            <Link href="/talentos/cadastrar" className="px-6 py-2 bg-[#00628c] text-white font-bold rounded-full shadow-sm hover:scale-95 transition-transform text-center">Cadastrar</Link>
-            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden p-2 text-[#3e4850]">
-              <Menu className="w-6 h-6" />
-            </button>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       <main className="pt-32 pb-20 max-w-7xl mx-auto px-4 md:px-8">
         {/* Header & Search */}
@@ -219,9 +208,9 @@ export default function TalentosPage() {
                 <div className="w-12 h-12 border-4 border-[#00628c]/20 border-t-[#00628c] rounded-full animate-spin"></div>
                 <p className="text-[#3e4850] font-medium">Carregando talentos...</p>
               </div>
-            ) : filteredCandidates.length > 0 ? (
+            ) : paginatedCandidates.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {filteredCandidates.map((cand, idx) => (
+                {paginatedCandidates.map((cand, idx) => (
                   <motion.div 
                     key={cand.id}
                     initial={{ opacity: 0, y: 20 }}
@@ -292,17 +281,46 @@ export default function TalentosPage() {
             )}
 
             {/* Pagination */}
-            <div className="mt-16 flex justify-center gap-3">
-              <button className="w-12 h-12 flex items-center justify-center rounded-2xl bg-[#f0eded] text-[#3e4850] hover:bg-[#00628c] hover:text-white transition-all">
-                <ChevronLeft className="w-6 h-6" />
-              </button>
-              <button className="w-12 h-12 flex items-center justify-center rounded-2xl bg-[#00628c] text-white font-bold shadow-lg shadow-[#00628c]/20">1</button>
-              <button className="w-12 h-12 flex items-center justify-center rounded-2xl bg-[#f0eded] text-[#3e4850] hover:bg-[#00628c] hover:text-white transition-all font-bold">2</button>
-              <button className="w-12 h-12 flex items-center justify-center rounded-2xl bg-[#f0eded] text-[#3e4850] hover:bg-[#00628c] hover:text-white transition-all font-bold">3</button>
-              <button className="w-12 h-12 flex items-center justify-center rounded-2xl bg-[#f0eded] text-[#3e4850] hover:bg-[#00628c] hover:text-white transition-all">
-                <ChevronRight className="w-6 h-6" />
-              </button>
-            </div>
+            {totalPages > 1 && (
+              <div className="mt-16 flex justify-center items-center gap-2">
+                <button 
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-[#bec8d1]/30 text-[#3e4850] hover:bg-[#00628c] hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed group shadow-sm"
+                >
+                  <ChevronsLeft className="w-5 h-5 group-active:scale-90 transition-transform" />
+                </button>
+                <button 
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-[#bec8d1]/30 text-[#3e4850] hover:bg-[#00628c] hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed group shadow-sm"
+                >
+                  <ChevronLeft className="w-5 h-5 group-active:scale-90 transition-transform" />
+                </button>
+                
+                <div className="flex items-center gap-2 px-2">
+                  <span className="w-10 h-10 flex items-center justify-center rounded-xl bg-[#00628c] text-white font-bold shadow-lg shadow-[#00628c]/20">
+                    {currentPage}
+                  </span>
+                  <span className="text-[#3e4850] font-medium text-sm">de {totalPages}</span>
+                </div>
+
+                <button 
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-[#bec8d1]/30 text-[#3e4850] hover:bg-[#00628c] hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed group shadow-sm"
+                >
+                  <ChevronRight className="w-5 h-5 group-active:scale-90 transition-transform" />
+                </button>
+                <button 
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-[#bec8d1]/30 text-[#3e4850] hover:bg-[#00628c] hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed group shadow-sm"
+                >
+                  <ChevronsRight className="w-5 h-5 group-active:scale-90 transition-transform" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -347,8 +365,4 @@ export default function TalentosPage() {
       </footer>
     </div>
   );
-}
-
-function cn(...classes: any[]) {
-  return classes.filter(Boolean).join(' ');
 }

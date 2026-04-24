@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Search, 
@@ -17,17 +17,92 @@ import {
   Handshake,
   ChevronRight,
   Menu,
-  X
+  X,
+  Briefcase,
+  Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import { cn } from '@/lib/utils';
+import { Navbar } from '@/app/components/Navbar';
+
+interface Job {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  type: string;
+  area: string;
+  status: 'pending' | 'active' | 'rejected' | 'closed';
+  salary: string;
+  description: string;
+  requirements: string[];
+  created_at?: string;
+}
+
+interface Candidate {
+  id: string;
+  name: string;
+  location: string;
+  area: string;
+  status: 'pending' | 'approved' | 'rejected';
+  role: string;
+  summary: string;
+  skills: string[];
+  image: string;
+  verified?: boolean;
+  created_at?: string;
+}
 
 export default function LandingPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'candidatos' | 'empresas'>('candidatos');
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
+  const [featuredJobs, setFeaturedJobs] = useState<Job[]>([]);
+  const [isLoadingJobs, setIsLoadingJobs] = useState(true);
+  const [featuredCandidates, setFeaturedCandidates] = useState<Candidate[]>([]);
+  const [isLoadingCandidates, setIsLoadingCandidates] = useState(true);
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+
+  useEffect(() => {
+    async function fetchFeaturedData() {
+      setIsLoadingJobs(true);
+      setIsLoadingCandidates(true);
+      
+      const [jobsRes, candidatesRes] = await Promise.all([
+        supabase
+          .from('jobs')
+          .select('*')
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(3),
+        supabase
+          .from('candidates')
+          .select('*')
+          .eq('status', 'approved')
+          .order('created_at', { ascending: false })
+          .limit(3)
+      ]);
+
+      if (jobsRes.error) {
+        console.error('Erro ao buscar destaques de vagas:', jobsRes.error);
+      } else if (jobsRes.data) {
+        setFeaturedJobs(jobsRes.data);
+      }
+
+      if (candidatesRes.error) {
+        console.error('Erro ao buscar destaques de talentos:', candidatesRes.error);
+      } else if (candidatesRes.data) {
+        setFeaturedCandidates(candidatesRes.data);
+      }
+      
+      setIsLoadingJobs(false);
+      setIsLoadingCandidates(false);
+    }
+    fetchFeaturedData();
+  }, []);
 
   const handleSearch = () => {
     if (searchValue.trim()) {
@@ -39,71 +114,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[#fcf9f8] text-[#1b1c1c] font-body selection:bg-[#00628c]/20 selection:text-[#00628c]">
-      {/* TopNavBar */}
-      <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50 border-b border-[#bec8d1]/20">
-        <nav className="flex justify-between items-center px-4 md:px-8 py-4 max-w-7xl mx-auto">
-          <Link href="/" className="flex items-center gap-2 text-xl md:text-2xl font-bold text-[#00628c] tracking-tighter font-headline group">
-            <div className="w-8 h-8 md:w-10 md:h-10 bg-[#00628c] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#00628c]/20 group-hover:scale-110 transition-transform">
-              <Handshake className="w-5 h-5 md:w-6 md:h-6" />
-            </div>
-            Corrente do Bem
-          </Link>
-          
-          {/* Desktop Nav */}
-          <div className="hidden md:flex items-center space-x-8 text-sm font-semibold tracking-tight">
-            <Link href="/vagas" className="text-[#3e4850] hover:text-[#00628c] transition-colors duration-200">Buscar Vagas</Link>
-            <Link href="/talentos" className="text-[#3e4850] hover:text-[#00628c] transition-colors duration-200">Encontrar Talentos</Link>
-            <Link href="#como-funciona" className="text-[#3e4850] hover:text-[#00628c] transition-colors duration-200">Como Funciona</Link>
-            <Link href="#comunidade" className="text-[#3e4850] hover:text-[#00628c] transition-colors duration-200">Comunidade</Link>
-          </div>
-
-          <div className="flex items-center space-x-2 md:space-x-4">
-            <div className="hidden sm:flex items-center space-x-2 md:space-x-4">
-              <Link href="/vagas" className="px-3 md:px-5 py-2 text-sm font-semibold text-[#00628c] hover:bg-[#f6f3f2] rounded-full transition-all">
-                Entrar
-              </Link>
-              <Link href="/vagas/cadastrar" className="px-3 md:px-5 py-2 text-sm font-semibold bg-[#00628c] text-white rounded-full shadow-sm hover:scale-95 transition-transform duration-150">
-                Cadastrar-se
-              </Link>
-            </div>
-            
-            {/* Mobile Menu Button */}
-            <button 
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="md:hidden p-2 text-[#3e4850] hover:text-[#00628c] transition-colors"
-            >
-              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-          </div>
-        </nav>
-
-        {/* Mobile Menu Overlay */}
-          <AnimatePresence>
-          {isMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="md:hidden bg-white border-t border-[#bec8d1]/20 overflow-hidden"
-            >
-              <div className="flex flex-col p-6 space-y-4 font-semibold">
-                <Link onClick={() => setIsMenuOpen(false)} href="/vagas" className="text-[#3e4850] hover:text-[#00628c]">Buscar Vagas</Link>
-                <Link onClick={() => setIsMenuOpen(false)} href="/talentos" className="text-[#3e4850] hover:text-[#00628c]">Encontrar Talentos</Link>
-                <Link onClick={() => setIsMenuOpen(false)} href="#como-funciona" className="text-[#3e4850] hover:text-[#00628c]">Como Funciona</Link>
-                <Link onClick={() => setIsMenuOpen(false)} href="#comunidade" className="text-[#3e4850] hover:text-[#00628c]">Comunidade</Link>
-                <div className="pt-4 border-t border-[#bec8d1]/10 flex flex-col space-y-3">
-                  <Link onClick={() => setIsMenuOpen(false)} href="/vagas" className="w-full py-3 text-center text-[#00628c] font-bold border border-[#00628c] rounded-xl">
-                    Entrar
-                  </Link>
-                  <Link onClick={() => setIsMenuOpen(false)} href="/vagas/cadastrar" className="w-full py-3 text-center bg-[#00628c] text-white font-bold rounded-xl">
-                    Cadastrar-se
-                  </Link>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </header>
+      <Navbar />
 
       <main>
         {/* Hero Section */}
@@ -194,56 +205,144 @@ export default function LandingPage() {
                 Ver todas as vagas <ArrowRight className="w-5 h-5" />
               </Link>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {/* Job Card 1 */}
-              <div className="md:col-span-2 lg:col-span-2 bg-white p-8 rounded-3xl transition-all hover:shadow-xl hover:-translate-y-1 border border-[#bec8d1]/10">
-                <div className="flex justify-between items-start mb-6">
-                  <div className="w-16 h-16 rounded-2xl bg-[#c8e6ff] flex items-center justify-center">
-                    <Utensils className="w-8 h-8 text-[#00628c]" />
-                  </div>
-                  <span className="px-3 py-1 bg-[#bff444] text-[#141f00] text-xs font-bold rounded-full">URGENTE</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {isLoadingJobs ? (
+                Array(3).fill(0).map((_, i) => (
+                  <div key={i} className="bg-white p-8 rounded-3xl animate-pulse border border-[#bec8d1]/10 h-64"></div>
+                ))
+              ) : featuredJobs.length > 0 ? (
+                featuredJobs.map((job, idx) => (
+                  <motion.div 
+                    key={job.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.1 }}
+                    className={cn(
+                      "bg-white p-8 rounded-3xl transition-all hover:shadow-xl hover:-translate-y-1 border border-[#bec8d1]/10 flex flex-col h-full",
+                      idx === 0 && featuredJobs.length === 3 ? "lg:col-span-1" : ""
+                    )}
+                  >
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="w-16 h-16 rounded-2xl bg-[#c8e6ff] flex items-center justify-center">
+                        <Briefcase className="w-8 h-8 text-[#00628c]" />
+                      </div>
+                      {idx === 0 && <span className="px-3 py-1 bg-[#bff444] text-[#141f00] text-xs font-bold rounded-full uppercase tracking-wider">Novo</span>}
+                    </div>
+                    <h3 className="text-xl lg:text-2xl font-bold text-[#1b1c1c] mb-2 font-headline line-clamp-1">{job.title}</h3>
+                    <p className="text-[#964900] font-bold text-sm mb-4">{job.company}</p>
+                    <p className="text-[#3e4850] mb-6 leading-relaxed line-clamp-3 text-sm flex-grow">{job.description}</p>
+                    <div className="flex items-center gap-4 text-xs text-[#3e4850] font-medium mb-8">
+                      <span className="flex items-center gap-1"><MapPin className="w-4 h-4 text-[#00628c]" /> {job.location}</span>
+                      {job.salary && <span className="flex items-center gap-1"><DollarSign className="w-4 h-4 text-[#00628c]" /> {job.salary}</span>}
+                    </div>
+                    <button 
+                      onClick={() => setSelectedJob(job)}
+                      className="block w-full py-4 bg-[#f0eded] text-[#1b1c1c] font-bold rounded-xl hover:bg-[#00628c] hover:text-white transition-colors text-center"
+                    >
+                      Detalhes
+                    </button>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="col-span-full py-12 text-center bg-white rounded-3xl border border-dashed border-[#bec8d1]/30">
+                  <p className="text-[#3e4850]">Nenhuma vaga disponível no momento.</p>
                 </div>
-                <h3 className="text-2xl font-bold text-[#1b1c1c] mb-2 font-headline">Auxiliar de Cozinha Pleno</h3>
-                <p className="text-[#3e4850] mb-6 leading-relaxed">Rede de hotéis busca profissional dedicado para suporte na produção de eventos corporativos e buffet.</p>
-                <div className="flex items-center gap-4 text-sm text-[#3e4850] font-medium mb-8">
-                  <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> São Paulo, SP</span>
-                  <span className="flex items-center gap-1"><DollarSign className="w-4 h-4" /> R$ 2.400,00</span>
-                </div>
-                <Link href="/vagas" className="block w-full py-4 bg-[#f0eded] text-[#1b1c1c] font-bold rounded-xl hover:bg-[#00628c] hover:text-white transition-colors text-center">
-                  Candidatar-se
-                </Link>
-              </div>
-              {/* Job Card 2 */}
-              <div className="bg-white p-8 rounded-3xl transition-all hover:shadow-xl hover:-translate-y-1 border border-[#bec8d1]/10">
-                <div className="w-14 h-14 rounded-2xl bg-[#ffdcc6] flex items-center justify-center mb-6">
-                  <Brush className="w-7 h-7 text-[#964900]" />
-                </div>
-                <h3 className="text-xl font-bold text-[#1b1c1c] mb-2 font-headline">Serviços Gerais</h3>
-                <p className="text-[#3e4850] text-sm mb-6">Manutenção de espaços comerciais em condomínio de luxo.</p>
-                <div className="flex flex-col gap-2 text-sm text-[#3e4850] font-medium mb-8">
-                  <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> Rio de Janeiro, RJ</span>
-                </div>
-                <Link href="/vagas" className="block w-full py-3 bg-[#f0eded] text-[#1b1c1c] font-bold rounded-xl hover:bg-[#00628c] hover:text-white transition-colors text-center">
-                  Detalhes
-                </Link>
-              </div>
-              {/* Job Card 3 */}
-              <div className="bg-white p-8 rounded-3xl transition-all hover:shadow-xl hover:-translate-y-1 border border-[#bec8d1]/10">
-                <div className="w-14 h-14 rounded-2xl bg-[#bff444] flex items-center justify-center mb-6">
-                  <Truck className="w-7 h-7 text-[#4a6500]" />
-                </div>
-                <h3 className="text-xl font-bold text-[#1b1c1c] mb-2 font-headline">Motorista Categoria D</h3>
-                <p className="text-[#3e4850] text-sm mb-6">Transporte de materiais hospitalares com rota fixa estadual.</p>
-                <div className="flex flex-col gap-2 text-sm text-[#3e4850] font-medium mb-8">
-                  <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> Curitiba, PR</span>
-                </div>
-                <Link href="/vagas" className="block w-full py-3 bg-[#f0eded] text-[#1b1c1c] font-bold rounded-xl hover:bg-[#00628c] hover:text-white transition-colors text-center">
-                  Detalhes
-                </Link>
-              </div>
+              )}
             </div>
           </div>
         </section>
+
+        {/* Modal de Detalhes da Vaga */}
+        <AnimatePresence>
+          {selectedJob && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setSelectedJob(null)}
+                className="absolute inset-0 bg-[#3e4850]/60 backdrop-blur-sm"
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-2xl bg-white rounded-[2rem] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+              >
+                <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar">
+                  <button 
+                    onClick={() => setSelectedJob(null)}
+                    className="absolute top-6 right-6 p-2 bg-[#f6f3f2] rounded-full text-[#3e4850] hover:bg-[#00628c] hover:text-white transition-all z-10"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="w-16 h-16 bg-[#c8e6ff] rounded-2xl flex items-center justify-center text-[#00628c]">
+                      <Briefcase className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-black text-[#00628c] font-headline tracking-tight">{selectedJob.title}</h2>
+                      <p className="text-[#964900] font-bold">{selectedJob.company}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-10">
+                    <div className="p-4 bg-[#f6f3f2] rounded-2xl">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#6f7881] mb-1">Localização</p>
+                      <p className="text-sm font-bold text-[#3e4850] flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-[#00628c]" /> {selectedJob.location}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-[#f6f3f2] rounded-2xl">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#6f7881] mb-1">Tipo</p>
+                      <p className="text-sm font-bold text-[#3e4850] flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-[#00628c]" /> {selectedJob.type}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-[#f6f3f2] rounded-2xl">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#6f7881] mb-1">Salário</p>
+                      <p className="text-sm font-bold text-[#3e4850] flex items-center gap-1.5">
+                        <DollarSign className="w-3.5 h-3.5 text-[#00628c]" /> {selectedJob.salary || 'A combinar'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-8">
+                    <div>
+                      <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#00628c] mb-4">Descrição da Vaga</h3>
+                      <p className="text-[#3e4850] leading-relaxed whitespace-pre-wrap text-sm md:text-base">{selectedJob.description}</p>
+                    </div>
+
+                    {selectedJob.requirements && selectedJob.requirements.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#00628c] mb-4">Requisitos</h3>
+                        <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {selectedJob.requirements.map((req, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-[#3e4850] text-sm group">
+                              <div className="mt-1.5 w-1.5 h-1.5 bg-[#bff444] rounded-full group-hover:scale-125 transition-transform shrink-0" />
+                              {req}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-6 md:p-8 bg-[#f6f3f2] border-t border-[#bec8d1]/10 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                  <p className="text-xs text-[#6f7881] font-medium italic">Vaga anunciada através do Corrente do Bem</p>
+                  <button 
+                    className="w-full sm:w-auto px-10 py-4 bg-[#00628c] text-white font-black uppercase tracking-widest rounded-2xl hover:bg-[#004c6d] transition-all shadow-lg shadow-[#00628c]/20 text-sm"
+                    onClick={() => alert(`Para se candidatar, entre em contato através dos dados da empresa ou aguarde novas instruções.`)}
+                  >
+                    Candidatar-se Agora
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
         {/* Talentos que Inspiram */}
         <section id="comunidade" className="py-16 lg:py-24 bg-white overflow-hidden">
@@ -255,75 +354,49 @@ export default function LandingPage() {
             </div>
             <h2 className="text-3xl lg:text-4xl font-bold text-[#1b1c1c] text-center mb-12 lg:mb-16 tracking-tight font-headline">Talentos que Inspiram</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10">
-              {/* Profile Card 1 */}
-              <motion.div 
-                whileHover={{ y: -10 }}
-                className="relative group"
-              >
-                <div className="aspect-[4/5] rounded-[2.5rem] overflow-hidden mb-6 shadow-lg relative">
-                  <Image 
-                    alt="Mariana Silva" 
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
-                    src="https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&q=80&w=600" 
-                    fill
-                    referrerPolicy="no-referrer"
-                  />
+              {isLoadingCandidates ? (
+                Array(3).fill(0).map((_, i) => (
+                  <div key={i} className="aspect-[4/5] rounded-[2.5rem] bg-[#f6f3f2] animate-pulse"></div>
+                ))
+              ) : featuredCandidates.length > 0 ? (
+                featuredCandidates.map((cand, idx) => (
+                  <motion.div 
+                    key={cand.id}
+                    whileHover={{ y: -10 }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.1 }}
+                    className={cn(
+                      "relative group h-full",
+                      idx === 1 ? "lg:mt-12" : "",
+                      idx === 2 ? "lg:mt-24" : ""
+                    )}
+                  >
+                    <div className="aspect-[4/5] rounded-[2.5rem] overflow-hidden mb-6 shadow-lg relative">
+                      <Image 
+                        alt={cand.name} 
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                        src={cand.image || "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&q=80&w=600"} 
+                        fill
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                    <div className="bg-white/90 backdrop-blur-md absolute bottom-10 left-6 right-6 p-6 rounded-2xl shadow-lg border border-[#bec8d1]/10">
+                      <h3 className="text-xl font-bold text-[#1b1c1c] font-headline">{cand.name}</h3>
+                      <p className="text-[#00628c] font-semibold mb-2 line-clamp-1">{cand.role}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {cand.skills.slice(0, 2).map((skill, index) => (
+                          <span key={index} className="px-2 py-1 bg-[#f0eded] text-[10px] font-bold rounded uppercase">{skill}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="col-span-full py-12 text-center bg-[#f6f3f2] rounded-3xl border border-dashed border-[#bec8d1]/30">
+                  <p className="text-[#3e4850]">Nenhum talento em destaque no momento.</p>
                 </div>
-                <div className="bg-white/90 backdrop-blur-md absolute bottom-10 left-6 right-6 p-6 rounded-2xl shadow-lg border border-[#bec8d1]/10">
-                  <h3 className="text-xl font-bold text-[#1b1c1c] font-headline">Mariana Silva</h3>
-                  <p className="text-[#00628c] font-semibold mb-2">Gestão de Logística</p>
-                  <div className="flex gap-2">
-                    <span className="px-2 py-1 bg-[#f0eded] text-[10px] font-bold rounded uppercase">Eficiência</span>
-                    <span className="px-2 py-1 bg-[#f0eded] text-[10px] font-bold rounded uppercase">Liderança</span>
-                  </div>
-                </div>
-              </motion.div>
-              {/* Profile Card 2 */}
-              <motion.div 
-                whileHover={{ y: -10 }}
-                className="relative group lg:mt-12"
-              >
-                <div className="aspect-[4/5] rounded-[2.5rem] overflow-hidden mb-6 shadow-lg relative">
-                  <Image 
-                    alt="Roberto Almeida" 
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
-                    src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=600" 
-                    fill
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-                <div className="bg-white/90 backdrop-blur-md absolute bottom-10 left-6 right-6 p-6 rounded-2xl shadow-lg border border-[#bec8d1]/10">
-                  <h3 className="text-xl font-bold text-[#1b1c1c] font-headline">Roberto Almeida</h3>
-                  <p className="text-[#00628c] font-semibold mb-2">Mestre de Obras</p>
-                  <div className="flex gap-2">
-                    <span className="px-2 py-1 bg-[#f0eded] text-[10px] font-bold rounded uppercase">20 Anos Exp.</span>
-                    <span className="px-2 py-1 bg-[#f0eded] text-[10px] font-bold rounded uppercase">Técnico</span>
-                  </div>
-                </div>
-              </motion.div>
-              {/* Profile Card 3 */}
-              <motion.div 
-                whileHover={{ y: -10 }}
-                className="relative group lg:mt-24"
-              >
-                <div className="aspect-[4/5] rounded-[2.5rem] overflow-hidden mb-6 shadow-lg relative">
-                  <Image 
-                    alt="Clara Mendes" 
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
-                    src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=600" 
-                    fill
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-                <div className="bg-white/90 backdrop-blur-md absolute bottom-10 left-6 right-6 p-6 rounded-2xl shadow-lg border border-[#bec8d1]/10">
-                  <h3 className="text-xl font-bold text-[#1b1c1c] font-headline">Clara Mendes</h3>
-                  <p className="text-[#00628c] font-semibold mb-2">Assistente Administrativa</p>
-                  <div className="flex gap-2">
-                    <span className="px-2 py-1 bg-[#f0eded] text-[10px] font-bold rounded uppercase">Bilíngue</span>
-                    <span className="px-2 py-1 bg-[#f0eded] text-[10px] font-bold rounded uppercase">Organizadora</span>
-                  </div>
-                </div>
-              </motion.div>
+              )}
             </div>
             <div className="mt-16 flex justify-center">
               <Link className="inline-flex items-center gap-2 px-8 py-4 bg-[#00628c] hover:bg-[#004c6d] text-white font-bold rounded-lg transition-all hover:scale-105 shadow-sm group" href="/talentos">

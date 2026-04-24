@@ -49,6 +49,21 @@ create table if not exists candidates (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
+-- TABELA DE NEGÓCIOS (BUSINESS)
+create table if not exists negocios (
+  id uuid default uuid_generate_v4() primary key,
+  title text not null,
+  owner_name text not null,
+  location text not null,
+  area text not null,
+  description text,
+  contact_email text,
+  contact_phone text,
+  type text, -- 'Sócio', 'Investimento', 'Parceria', 'Venda'
+  status text default 'pending', -- 'pending', 'active', 'rejected', 'closed'
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+
 -- TABELA DE HISTÓRICO (HISTORY)
 create table if not exists history (
   id uuid default uuid_generate_v4() primary key,
@@ -81,21 +96,25 @@ alter table jobs enable row level security;
 alter table candidates enable row level security;
 alter table history enable row level security;
 alter table settings enable row level security;
+alter table negocios enable row level security;
 
 -- Permitir leitura pública
 create policy "Allow public read jobs" on jobs for select using (true);
 create policy "Allow public read candidates" on candidates for select using (true);
+create policy "Allow public read negocios" on negocios for select using (true);
 create policy "Allow public read history" on history for select using (true);
 create policy "Allow public read settings" on settings for select using (true);
 
 -- Permitir inscrições públicas (insert)
 create policy "Allow public insert jobs" on jobs for insert with check (true);
 create policy "Allow public insert candidates" on candidates for insert with check (true);
+create policy "Allow public insert negocios" on negocios for insert with check (true);
 
 -- Permitir que o admin (você) gerencie tudo
 -- Nota: Em um app real, aqui restringiríamos por role de admin
 create policy "Allow all for admin" on jobs for all using (true) with check (true);
 create policy "Allow all for admin" on candidates for all using (true) with check (true);
+create policy "Allow all for admin" on negocios for all using (true) with check (true);
 create policy "Allow all for admin" on history for all using (true) with check (true);
 create policy "Allow all for admin" on settings for all using (true) with check (true);
 ```
