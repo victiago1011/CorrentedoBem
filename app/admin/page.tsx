@@ -32,7 +32,8 @@ import {
   Loader2,
   Edit,
   Trash2,
-  Phone
+  Phone,
+  TrendingUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -43,7 +44,7 @@ import Link from 'next/link';
 
 // --- Types ---
 
-type View = 'vagas' | 'curriculos' | 'historico' | 'configuracoes' | 'galeria' | 'galeria_vagas' | 'recusados';
+type View = 'vagas' | 'curriculos' | 'negocios' | 'historico' | 'configuracoes' | 'galeria' | 'galeria_vagas' | 'galeria_negocios' | 'recusados';
 
 interface Job {
   id: string;
@@ -81,6 +82,22 @@ interface Candidate {
   resume_url?: string;
   verified?: boolean;
   created_at?: string;
+}
+
+interface Negocio {
+  id: string;
+  title: string;
+  owner_name: string;
+  description: string;
+  location: string;
+  type: string;
+  area: string;
+  status: 'pending' | 'active' | 'rejected' | 'closed';
+  contact_email?: string;
+  contact_phone?: string;
+  contact_name?: string;
+  created_at?: string;
+  verified?: boolean;
 }
 
 interface HistoryItem {
@@ -232,8 +249,10 @@ const Sidebar = ({ activeView, setView, isOpen, onClose }: { activeView: View, s
         {[
           { id: 'vagas', label: 'Vagas Pendentes', icon: <Clock className="w-5 h-5" /> },
           { id: 'curriculos', label: 'Currículos Pendentes', icon: <FileText className="w-5 h-5" /> },
+          { id: 'negocios', label: 'Negócios Pendentes', icon: <TrendingUp className="w-5 h-5" /> },
           { id: 'galeria_vagas', label: 'Galeria de Vagas', icon: <Briefcase className="w-5 h-5" /> },
           { id: 'galeria', label: 'Galeria de Talentos', icon: <LayoutGrid className="w-5 h-5" /> },
+          { id: 'galeria_negocios', label: 'Galeria de Negócios', icon: <Zap className="w-5 h-5" /> },
           { id: 'recusados', label: 'Recusados', icon: <XCircle className="w-5 h-5" /> },
           { id: 'historico', label: 'Histórico', icon: <History className="w-5 h-5" /> },
           { id: 'configuracoes', label: 'Configurações', icon: <Settings className="w-5 h-5" /> },
@@ -305,19 +324,25 @@ export default function Dashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [negocios, setNegocios] = useState<Negocio[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
+  const [selectedNegocio, setSelectedNegocio] = useState<Negocio | null>(null);
   const [isAddingJob, setIsAddingJob] = useState(false);
+  const [isAddingNegocio, setIsAddingNegocio] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
+  const [editingNegocio, setEditingNegocio] = useState<Negocio | null>(null);
   
   const [talentSearch, setTalentSearch] = useState('');
   const [talentCategory, setTalentCategory] = useState('Todos os Talentos');
   const [jobSearch, setJobSearch] = useState('');
   const [jobCategory, setJobCategory] = useState('Todas as Vagas');
+  const [negocioSearch, setNegocioSearch] = useState('');
+  const [negocioCategory, setNegocioCategory] = useState('Todas');
   const [showToast, setShowToast] = useState<string | null>(null);
   const [settings, setSettings] = useState<{
     id?: number;
@@ -334,7 +359,7 @@ export default function Dashboard() {
 
   const [confirmAction, setConfirmAction] = useState<{
     type: 'approve' | 'reject' | 'delete' | 'edit';
-    target: 'job' | 'candidate';
+    target: 'job' | 'candidate' | 'negocio';
     id: string;
     payload?: any;
   } | null>(null);
@@ -343,15 +368,17 @@ export default function Dashboard() {
   const fetchData = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const [jobsRes, candidatesRes, historyRes, settingsRes] = await Promise.all([
+      const [jobsRes, candidatesRes, negociosRes, historyRes, settingsRes] = await Promise.all([
         supabase.from('jobs').select('*').order('created_at', { ascending: false }),
         supabase.from('candidates').select('*').order('created_at', { ascending: false }),
+        supabase.from('negocios').select('*').order('created_at', { ascending: false }),
         supabase.from('history').select('*').order('created_at', { ascending: false }),
         supabase.from('settings').select('*').maybeSingle()
       ]);
 
       if (jobsRes.data) setJobs(jobsRes.data);
       if (candidatesRes.data) setCandidates(candidatesRes.data);
+      if (negociosRes.data) setNegocios(negociosRes.data);
       if (historyRes.data) setHistory(historyRes.data);
       if (settingsRes.data) setSettings(settingsRes.data);
     } catch (error) {
@@ -602,6 +629,54 @@ export default function Dashboard() {
     }
   }, []);
 
+  // Negocios CRUD
+  const approveNegocio = React.useCallback(async (id: string) => {
+    const negocio = negocios.find(n => n.id === id);
+    if (!negocio) return;
+    const { error } = await supabase.from('negocios').update({ status: 'active' }).eq('id', id);
+    if (!error) {
+      setNegocios(prev => prev.map(n => n.id === id ? { ...n, status: 'active' } : n));
+      const { data: hData } = await supabase.from('history').insert({
+        action: 'Negócio Aprovado',
+        details: `Negócio "${negocio.title}" foi aprovado.`
+      }).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+      setSelectedNegocio(null);
+      setConfirmAction(null);
+    }
+  }, [negocios]);
+
+  const rejectNegocio = React.useCallback(async (id: string) => {
+    const negocio = negocios.find(n => n.id === id);
+    if (!negocio) return;
+    const { error } = await supabase.from('negocios').update({ status: 'rejected' }).eq('id', id);
+    if (!error) {
+      setNegocios(prev => prev.map(n => n.id === id ? { ...n, status: 'rejected' } : n));
+      const { data: hData } = await supabase.from('history').insert({
+        action: 'Negócio Recusado',
+        details: `Negócio "${negocio.title}" foi recusado.`
+      }).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+      setSelectedNegocio(null);
+      setConfirmAction(null);
+    }
+  }, [negocios]);
+
+  const deleteNegocio = React.useCallback(async (id: string) => {
+    const negocio = negocios.find(n => n.id === id);
+    if (!negocio) return;
+    const { error } = await supabase.from('negocios').delete().eq('id', id);
+    if (!error) {
+      setNegocios(prev => prev.filter(n => n.id !== id));
+      const { data: hData } = await supabase.from('history').insert({
+        action: 'Negócio Removido',
+        details: `Negócio "${negocio.title}" foi removido manualmente.`
+      }).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+      setConfirmAction(null);
+    }
+  }, [negocios]);
+
   const handleSaveSettings = React.useCallback(async (formData: FormData) => {
     const newSettings = {
       platform_name: formData.get('platform_name') as string,
@@ -823,6 +898,168 @@ export default function Dashboard() {
               </motion.div>
             )}
 
+            {activeView === 'negocios' && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-8"
+              >
+                <header className="flex justify-between items-end">
+                  <div>
+                    <span className="text-orange-600 font-bold text-sm tracking-widest uppercase mb-2 block">Central de Negócios</span>
+                    <h1 className="text-4xl font-extrabold text-on-surface tracking-tight font-headline">
+                      Negócios <span className="text-orange-600 italic">Pendentes</span>
+                    </h1>
+                    <p className="text-on-surface-variant mt-2 max-w-xl">Gerencie propostas de parcerias e investimentos. Analise cada oportunidade com critério.</p>
+                  </div>
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border-b-4 border-orange-200 flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center text-orange-600">
+                      <Zap className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-on-surface leading-tight">{negocios.filter(n => n.status === 'pending').length}</p>
+                      <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Aguardando Revisão</p>
+                    </div>
+                  </div>
+                </header>
+
+                <div className="bg-white rounded-2xl p-2 shadow-sm border border-outline-variant/10 overflow-x-auto">
+                  <table className="w-full text-left border-separate border-spacing-y-2 px-2 min-w-[600px]">
+                    <thead className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">
+                      <tr>
+                        <th className="px-4 py-4">Negócio / Oportunidade</th>
+                        <th className="px-4 py-4">Empresa</th>
+                        <th className="px-4 py-4">Tipo</th>
+                        <th className="px-4 py-4">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-sm">
+                      {negocios.filter(n => n.status === 'pending').map((n) => (
+                        <tr 
+                          key={n.id}
+                          onClick={() => setSelectedNegocio(n)}
+                          className={cn(
+                            "group hover:bg-orange-50 transition-all cursor-pointer rounded-xl",
+                            selectedNegocio?.id === n.id ? "bg-orange-50" : "bg-surface-container-low/30"
+                          )}
+                        >
+                          <td className="px-4 py-4 rounded-l-xl">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center text-orange-600">
+                                <TrendingUp className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <p className="font-bold text-on-surface">{n.title}</p>
+                                <p className="text-[11px] text-on-surface-variant">{n.location}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 font-medium text-on-surface-variant">{n.owner_name}</td>
+                          <td className="px-4 py-4">
+                            <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-semibold">{n.type}</span>
+                          </td>
+                          <td className="px-4 py-4 rounded-r-xl">
+                            <div className="flex items-center gap-1 text-orange-600 font-bold text-xs italic uppercase">
+                              <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                              Pendente
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {negocios.filter(n => n.status === 'pending').length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-10 text-center text-on-surface-variant">
+                            Nenhum negócio pendente no momento.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+
+            {activeView === 'galeria_negocios' && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="space-y-8"
+              >
+                <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                  <div>
+                    <h1 className="text-3xl font-extrabold text-orange-700 tracking-tight font-headline">Galeria de Negócios</h1>
+                    <p className="text-on-surface-variant mt-1">Negócios ativos e oportunidades de parceria disponíveis na plataforma.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <div className="relative w-64">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-outline w-4 h-4" />
+                      <input 
+                        type="text" 
+                        value={negocioSearch}
+                        onChange={(e) => setNegocioSearch(e.target.value)}
+                        placeholder="Buscar negócio..." 
+                        className="w-full pl-10 pr-4 py-2 bg-white border border-outline-variant/20 rounded-xl text-sm focus:ring-2 focus:ring-orange-200 outline-none"
+                      />
+                    </div>
+                  </div>
+                </header>
+
+                <nav className="flex overflow-x-auto gap-3 pb-2 no-scrollbar">
+                  {['Todas', 'Tecnologia', 'Comércio', 'Serviços', 'Franquias', 'Esportes', 'Outros'].map((cat) => (
+                    <button 
+                      key={cat}
+                      onClick={() => setNegocioCategory(cat)}
+                      className={cn(
+                        "px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all",
+                        negocioCategory === cat ? "bg-orange-600 text-white" : "bg-orange-50 text-orange-700 hover:bg-orange-100"
+                      )}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </nav>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {negocios
+                    .filter(n => n.status === 'active')
+                    .filter(n => negocioCategory === 'Todas' || n.area === negocioCategory)
+                    .filter(n => n.title.toLowerCase().includes(negocioSearch.toLowerCase()) || n.owner_name.toLowerCase().includes(negocioSearch.toLowerCase()))
+                    .map((n) => (
+                      <div key={n.id} className="bg-white p-6 rounded-3xl shadow-sm border border-outline-variant/10 hover:shadow-md transition-all group flex flex-col">
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-600">
+                            <TrendingUp className="w-6 h-6" />
+                          </div>
+                          <button 
+                            onClick={() => setConfirmAction({ type: 'delete', target: 'negocio' as any, id: n.id })}
+                            className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                        <h3 className="font-bold text-lg mb-1">{n.title}</h3>
+                        <p className="text-orange-600 font-semibold text-sm mb-3">{n.owner_name}</p>
+                        <p className="text-on-surface-variant text-xs mb-4 line-clamp-3">{n.description}</p>
+                        <div className="flex justify-between items-center pt-4 border-t border-outline-variant/10 mt-auto">
+                          <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-[10px] font-bold rounded-full uppercase">{n.type}</span>
+                          <button 
+                            onClick={() => setSelectedNegocio(n)}
+                            className="text-xs font-bold text-[#00628c] hover:underline"
+                          >
+                            Ver Detalhes
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  {negocios.filter(n => n.status === 'active').length === 0 && (
+                    <div className="col-span-full py-12 text-center text-on-surface-variant">
+                      Nenhum negócio ativo na galeria.
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
             {activeView === 'galeria_vagas' && (
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
@@ -1018,6 +1255,32 @@ export default function Dashboard() {
                       ))}
                       {candidates.filter(c => c.status === 'rejected').length === 0 && (
                         <p className="text-sm text-on-surface-variant italic">Nenhum candidato recusado.</p>
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="space-y-4">
+                    <h2 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4" />
+                      Negócios Recusados
+                    </h2>
+                    <div className="space-y-3">
+                      {negocios.filter(n => n.status === 'rejected').map(neg => (
+                        <div key={neg.id} className="p-4 bg-white rounded-2xl border border-outline-variant/10 shadow-sm flex justify-between items-center">
+                          <div>
+                            <p className="font-bold text-on-surface">{neg.title}</p>
+                            <p className="text-xs text-on-surface-variant">{neg.owner_name}</p>
+                          </div>
+                          <button 
+                            onClick={() => setConfirmAction({ type: 'approve', target: 'negocio' as any, id: neg.id })}
+                            className="text-xs font-bold text-primary hover:underline"
+                          >
+                            Reavaliar
+                          </button>
+                        </div>
+                      ))}
+                      {negocios.filter(n => n.status === 'rejected').length === 0 && (
+                        <p className="text-sm text-on-surface-variant italic">Nenhum negócio recusado.</p>
                       )}
                     </div>
                   </section>
@@ -1496,6 +1759,7 @@ export default function Dashboard() {
                       <div className="flex gap-3 mt-3">
                         <ExternalLink className="w-4 h-4 text-primary cursor-pointer hover:scale-110 transition-transform" />
                         <Share2 className="w-4 h-4 text-primary cursor-pointer hover:scale-110 transition-transform" />
+                        <Bookmark className="w-4 h-4 text-primary cursor-pointer hover:scale-110 transition-transform" />
                       </div>
                     </div>
                   </div>
@@ -1571,6 +1835,96 @@ export default function Dashboard() {
                       <button 
                         onClick={() => setConfirmAction({ type: 'approve', target: 'candidate', id: selectedCandidate.id })}
                         className="flex-1 py-4 px-4 bg-primary text-on-primary hover:shadow-lg hover:shadow-primary/30 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2 bg-gradient-to-v from-primary to-primary-container"
+                      >
+                        <CheckCircle2 className="w-5 h-5" />
+                        Aprovar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.aside>
+            )}
+
+            {(selectedNegocio && (activeView === 'negocios' || activeView === 'galeria_negocios')) && (
+              <motion.aside 
+                key={`negocio-${selectedNegocio.id}`}
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                className="fixed lg:relative top-0 right-0 w-full lg:w-[450px] h-full bg-white border-l border-outline-variant/10 p-6 lg:p-8 overflow-y-auto shadow-2xl z-[80] lg:z-30"
+              >
+                <div className="flex justify-between items-start mb-8">
+                  <div className="flex gap-4">
+                    <div className="w-16 lg:w-20 h-16 lg:h-20 bg-orange-100 rounded-3xl flex items-center justify-center text-orange-600 shadow-xl">
+                      <TrendingUp className="w-8 h-8 lg:w-10 lg:h-10" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl lg:text-2xl font-extrabold text-on-surface leading-tight font-headline">{selectedNegocio.title}</h3>
+                      <p className="text-orange-600 font-bold text-xs lg:text-sm">{selectedNegocio.owner_name}</p>
+                      <div className="flex gap-3 mt-3">
+                        <Share2 className="w-4 h-4 text-orange-600 cursor-pointer hover:scale-110 transition-transform" />
+                        <Zap className="w-4 h-4 text-orange-600 cursor-pointer hover:scale-110 transition-transform" />
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={() => setSelectedNegocio(null)} className="p-2 hover:bg-orange-50 rounded-full text-on-surface-variant">
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-8 mb-10">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-orange-50/50 rounded-2xl border border-orange-100">
+                      <p className="text-[10px] uppercase font-bold text-orange-600 mb-1">Localização</p>
+                      <p className="text-sm font-bold">{selectedNegocio.location}</p>
+                    </div>
+                    <div className="p-4 bg-orange-50/50 rounded-2xl border border-orange-100">
+                      <p className="text-[10px] uppercase font-bold text-orange-600 mb-1">Tipo</p>
+                      <p className="text-sm font-bold">{selectedNegocio.type}</p>
+                    </div>
+                  </div>
+
+                  <section>
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-orange-600 mb-3">Sobre a Oportunidade</h4>
+                    <p className="text-on-surface-variant text-sm leading-relaxed">{selectedNegocio.description}</p>
+                  </section>
+
+                  <section>
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-orange-600 mb-3">Informações de Contato</h4>
+                    <div className="space-y-3 bg-surface-container-low p-4 rounded-2xl border border-outline-variant/10">
+                      <div className="flex items-center gap-3 text-sm text-on-surface font-medium">
+                        <Mail className="w-4 h-4 text-orange-600" />
+                        {selectedNegocio.contact_email || 'Não informado'}
+                      </div>
+                      <div className="flex items-center gap-3 text-sm text-on-surface font-medium">
+                        <Phone className="w-4 h-4 text-orange-600" />
+                        {selectedNegocio.contact_phone || 'Não informado'}
+                      </div>
+                      <div className="flex items-center gap-3 text-sm text-on-surface font-medium">
+                        <Handshake className="w-4 h-4 text-orange-600" />
+                        Responsável: {selectedNegocio.contact_name || 'Não informado'}
+                      </div>
+                    </div>
+                  </section>
+                </div>
+
+                <div className="bg-orange-50 rounded-3xl p-6 space-y-6 border border-orange-200">
+                  <h4 className="text-sm font-bold text-orange-900 flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5" />
+                    Moderação de Negócios
+                  </h4>
+                  <div className="flex flex-col gap-4">
+                    <div className="flex gap-3">
+                      <button 
+                        onClick={() => setConfirmAction({ type: 'reject', target: 'negocio' as any, id: selectedNegocio.id })}
+                        className="flex-1 py-4 px-4 bg-white border-2 border-error text-error hover:bg-error/5 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2"
+                      >
+                        <XCircle className="w-5 h-5" />
+                        Recusar
+                      </button>
+                      <button 
+                        onClick={() => setConfirmAction({ type: 'approve', target: 'negocio' as any, id: selectedNegocio.id })}
+                        className="flex-1 py-4 px-4 bg-orange-600 text-white hover:bg-orange-700 shadow-lg shadow-orange-600/20 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2"
                       >
                         <CheckCircle2 className="w-5 h-5" />
                         Aprovar
@@ -1763,7 +2117,7 @@ export default function Dashboard() {
                 confirmAction.type === 'approve' ? 'aprovar' : 
                 confirmAction.type === 'reject' ? 'recusar' :
                 confirmAction.type === 'delete' ? 'excluir permanentemente' : 'salvar as alterações deste'
-              } {confirmAction.target === 'job' ? 'vaga' : 'candidato'}? 
+              } {confirmAction.target === 'job' ? 'vaga' : confirmAction.target === 'candidate' ? 'candidato' : 'negócio'}? 
               Esta ação será registrada no histórico do sistema.
             </p>
             <div className="grid grid-cols-2 gap-4">
@@ -1780,11 +2134,15 @@ export default function Dashboard() {
                     else if (confirmAction.type === 'reject') rejectJob(confirmAction.id);
                     else if (confirmAction.type === 'delete') deleteJob(confirmAction.id);
                     else if (confirmAction.type === 'edit') updateJob(confirmAction.payload);
-                  } else {
+                  } else if (confirmAction.target === 'candidate') {
                     if (confirmAction.type === 'approve') approveCandidate(confirmAction.id);
                     else if (confirmAction.type === 'reject') rejectCandidate(confirmAction.id);
                     else if (confirmAction.type === 'delete') deleteCandidate(confirmAction.id);
                     else if (confirmAction.type === 'edit') updateCandidate(confirmAction.payload);
+                  } else if (confirmAction.target === 'negocio') {
+                    if (confirmAction.type === 'approve') approveNegocio(confirmAction.id);
+                    else if (confirmAction.type === 'reject') rejectNegocio(confirmAction.id);
+                    else if (confirmAction.type === 'delete') deleteNegocio(confirmAction.id);
                   }
                 }}
                 className={cn(

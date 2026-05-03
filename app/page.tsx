@@ -130,7 +130,7 @@ export default function LandingPage() {
                 Dignidade e Conexão
               </span>
               <h1 className="text-4xl md:text-5xl lg:text-7xl font-extrabold text-[#1b1c1c] leading-[1.1] tracking-tight font-headline">
-                Encontre sua próxima <span className="text-[#00628c]">oportunidade</span> ou ofereça ajuda
+                Encontre sua próxima <span className="text-[#bff444]">vaga</span> ou ofereça ajuda
               </h1>
               <p className="text-lg md:text-xl text-[#3e4850] max-w-lg mx-auto lg:mx-0 leading-relaxed">
                 Unindo talentos invisíveis a empresas que valorizam o impacto social. Construa carreiras, transforme realidades.
@@ -199,7 +199,7 @@ export default function LandingPage() {
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 lg:mb-16 gap-6">
               <div>
                 <h2 className="text-3xl lg:text-4xl font-bold text-[#1b1c1c] tracking-tight mb-4 font-headline">Destaques do Dia</h2>
-                <p className="text-[#3e4850] text-base lg:text-lg max-w-2xl">Oportunidades que precisam do seu talento hoje. Aplique agora e mude sua trajetória.</p>
+                <p className="text-[#3e4850] text-base lg:text-lg max-w-2xl">Vagas que precisam do seu talento hoje. Aplique agora e mude sua trajetória.</p>
               </div>
               <Link className="group flex items-center gap-2 text-[#00628c] font-bold hover:gap-4 transition-all" href="/vagas">
                 Ver todas as vagas <ArrowRight className="w-5 h-5" />

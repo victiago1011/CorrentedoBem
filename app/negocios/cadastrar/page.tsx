@@ -4,61 +4,41 @@ import React, { useState } from 'react';
 import { 
   Building2, 
   MapPin, 
-  DollarSign, 
-  Briefcase, 
+  TrendingUp, 
   AlignLeft, 
-  Plus, 
   X, 
   CheckCircle2, 
   ArrowLeft,
   Loader2,
   Mail,
   Phone,
-  Link as LinkIcon,
-  Paperclip,
+  Users,
+  Handshake,
+  DollarSign,
+  Trophy,
+  Award,
   Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
-export default function CadastrarVagaPage() {
+export default function CadastrarNegocioPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
-    company: '',
-    email: '',
-    phone: '',
-    site_url: '',
+    owner_name: '',
+    contact_email: '',
+    contact_phone: '',
     location: '',
-    type: 'Tempo Integral',
-    area: 'Tecnologia',
-    salary: '',
+    type: 'Parceria',
+    area: 'Serviços',
     description: '',
-    attachment_url: '',
-    requirements: [] as string[]
+    attachment_url: ''
   });
-  const [reqInput, setReqInput] = useState('');
   const [attachmentName, setAttachmentName] = useState('');
   const attachmentInputRef = React.useRef<HTMLInputElement>(null);
-
-  const addRequirement = () => {
-    if (reqInput.trim()) {
-      setFormData(prev => ({
-        ...prev,
-        requirements: [...prev.requirements, reqInput.trim()]
-      }));
-      setReqInput('');
-    }
-  };
-
-  const removeRequirement = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      requirements: prev.requirements.filter((_, i) => i !== index)
-    }));
-  };
 
   const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -78,37 +58,25 @@ export default function CadastrarVagaPage() {
 
     try {
       const { error } = await supabase
-        .from('jobs')
+        .from('negocios')
         .insert([{
           title: formData.title,
-          company: formData.company,
-          email: formData.email,
-          phone: formData.phone,
-          site_url: formData.site_url,
+          owner_name: formData.owner_name,
+          contact_email: formData.contact_email,
+          contact_phone: formData.contact_phone,
           location: formData.location,
           type: formData.type,
           area: formData.area,
-          salary: formData.salary,
           description: formData.description,
           attachment_url: formData.attachment_url,
-          requirements: formData.requirements,
           status: 'pending'
         }]);
 
-      if (error) {
-        console.error('Erro detalhado do Supabase (Jobs):', {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint
-        });
-        throw error;
-      }
+      if (error) throw error;
       setIsSuccess(true);
     } catch (error: any) {
-      console.error('Erro ao cadastrar vaga:', error);
-      const errorMsg = error.message || (typeof error === 'string' ? error : JSON.stringify(error));
-      alert(`Erro ao cadastrar vaga: ${errorMsg}\n\nNota: Verifique se a tabela 'jobs' existe no seu Supabase e se as chaves API estão corretas no painel Settings.`);
+      console.error('Erro ao cadastrar negócio:', error);
+      alert(`Erro ao cadastrar negócio: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -122,12 +90,12 @@ export default function CadastrarVagaPage() {
           animate={{ scale: 1, opacity: 1 }}
           className="max-w-md w-full bg-white p-8 md:p-12 rounded-[2.5rem] shadow-2xl text-center border border-[#bec8d1]/20"
         >
-          <div className="w-20 h-20 bg-[#bff444] rounded-full flex items-center justify-center mx-auto mb-8 shadow-lg shadow-[#bff444]/20">
-            <CheckCircle2 className="w-10 h-10 text-[#141f00]" />
+          <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-8 shadow-lg shadow-orange-100/20">
+            <CheckCircle2 className="w-10 h-10 text-orange-600" />
           </div>
-          <h2 className="text-3xl font-extrabold text-[#00628c] mb-4 font-headline">Vaga Enviada!</h2>
+          <h2 className="text-3xl font-extrabold text-[#00628c] mb-4 font-headline">Oportunidade Enviada!</h2>
           <p className="text-[#3e4850] mb-10 leading-relaxed">
-            Sua vaga foi enviada e está aguardando aprovação dos nossos administradores. Em breve ela estará disponível no portal.
+            Sua oportunidade de negócio foi enviada e está aguardando aprovação. Em breve ela estará disponível na galeria de negócios.
           </p>
           <Link 
             href="/" 
@@ -150,20 +118,20 @@ export default function CadastrarVagaPage() {
 
         <div className="bg-white rounded-[2.5rem] shadow-xl p-8 md:p-12 border border-[#bec8d1]/10">
           <header className="mb-12">
-            <h1 className="text-4xl font-extrabold text-[#00628c] font-headline mb-4">Anunciar Vaga</h1>
-            <p className="text-[#3e4850]">Preencha os detalhes da oportunidade para encontrar o talento ideal.</p>
+            <h1 className="text-4xl font-extrabold text-[#00628c] font-headline mb-4">Divulgar Negócio</h1>
+            <p className="text-[#3e4850]">Compartilhe sua oportunidade de negócio, parceria ou investimento.</p>
           </header>
 
           <form onSubmit={handleSubmit} className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Título da Vaga <span className="text-red-500">*</span></label>
+                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Título da Oportunidade</label>
                 <div className="relative">
-                  <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
+                  <TrendingUp className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
                   <input 
                     required
                     type="text" 
-                    placeholder="Ex: Cozinheiro Industrial" 
+                    placeholder="Ex: Expansão de Franquia" 
                     className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all"
                     value={formData.title}
                     onChange={e => setFormData({...formData, title: e.target.value})}
@@ -172,16 +140,16 @@ export default function CadastrarVagaPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Empresa / Instituição <span className="text-red-500">*</span></label>
+                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Nome do Negócio / Empresa</label>
                 <div className="relative">
                   <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
                   <input 
                     required
                     type="text" 
-                    placeholder="Ex: Abrigo Esperança" 
+                    placeholder="Ex: Café Bela Vista" 
                     className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all"
-                    value={formData.company}
-                    onChange={e => setFormData({...formData, company: e.target.value})}
+                    value={formData.owner_name}
+                    onChange={e => setFormData({...formData, owner_name: e.target.value})}
                   />
                 </div>
               </div>
@@ -191,11 +159,12 @@ export default function CadastrarVagaPage() {
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
                   <input 
+                    required
                     type="email" 
-                    placeholder="contato@empresa.com" 
+                    placeholder="contato@exemplo.com" 
                     className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all"
-                    value={formData.email}
-                    onChange={e => setFormData({...formData, email: e.target.value})}
+                    value={formData.contact_email}
+                    onChange={e => setFormData({...formData, contact_email: e.target.value})}
                   />
                 </div>
               </div>
@@ -205,25 +174,12 @@ export default function CadastrarVagaPage() {
                 <div className="relative">
                   <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
                   <input 
+                    required
                     type="tel" 
                     placeholder="(00) 00000-0000" 
                     className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all"
-                    value={formData.phone}
-                    onChange={e => setFormData({...formData, phone: e.target.value})}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Site ou Link da Vaga</label>
-                <div className="relative">
-                  <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
-                  <input 
-                    type="url" 
-                    placeholder="https://empresa.com/vaga" 
-                    className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all"
-                    value={formData.site_url}
-                    onChange={e => setFormData({...formData, site_url: e.target.value})}
+                    value={formData.contact_phone}
+                    onChange={e => setFormData({...formData, contact_phone: e.target.value})}
                   />
                 </div>
               </div>
@@ -233,6 +189,7 @@ export default function CadastrarVagaPage() {
                 <div className="relative">
                   <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
                   <input 
+                    required
                     type="text" 
                     placeholder="Ex: Porto Alegre, RS" 
                     className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all"
@@ -243,50 +200,32 @@ export default function CadastrarVagaPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Salário / Remuneração</label>
-                <div className="relative">
-                  <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
-                  <input 
-                    type="text" 
-                    placeholder="Ex: R$ 2.500,00" 
-                    className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all"
-                    value={formData.salary}
-                    onChange={e => setFormData({...formData, salary: e.target.value})}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Tipo de Vaga <span className="text-red-500">*</span></label>
+                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Tipo de Oportunidade</label>
                 <select 
-                  required
-                  className="w-full px-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 font-bold text-[#1b1c1c]"
+                  className="w-full px-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 font-bold text-[#1b1c1c] appearance-none"
                   value={formData.type}
                   onChange={e => setFormData({...formData, type: e.target.value})}
                 >
-                  <option>Tempo Integral</option>
-                  <option>Meio Período</option>
-                  <option>Híbrido</option>
-                  <option>Remoto</option>
-                  <option>Temporário</option>
+                  <option>Sócio</option>
+                  <option>Investimento</option>
+                  <option>Parceria</option>
+                  <option>Patrocínio</option>
+                  <option>Venda</option>
                 </select>
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Área de Atuação <span className="text-red-500">*</span></label>
+                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Área / Categoria</label>
                 <select 
-                  required
-                  className="w-full px-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 font-bold text-[#1b1c1c]"
+                  className="w-full px-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 font-bold text-[#1b1c1c] appearance-none"
                   value={formData.area}
                   onChange={e => setFormData({...formData, area: e.target.value})}
                 >
+                  <option>Comércio</option>
                   <option>Tecnologia</option>
-                  <option>Saúde</option>
-                  <option>Finanças</option>
-                  <option>Engenharia & Arquitetura</option>
-                  <option>Autônomos</option>
-                  <option>Educação</option>
-                  <option>Serviços Gerais</option>
+                  <option>Serviços</option>
+                  <option>Franquias</option>
+                  <option>Esportes</option>
                   <option>Outros</option>
                 </select>
               </div>
@@ -297,8 +236,9 @@ export default function CadastrarVagaPage() {
               <div className="relative">
                 <AlignLeft className="absolute left-4 top-4 w-5 h-5 text-[#6f7881]" />
                 <textarea 
-                  rows={4}
-                  placeholder="Descreva as responsabilidades e o que a vaga oferece..." 
+                  required
+                  rows={6}
+                  placeholder="Descreva o que sua empresa faz, o que está buscando e quais os benefícios da parceria..." 
                   className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all resize-none"
                   value={formData.description}
                   onChange={e => setFormData({...formData, description: e.target.value})}
@@ -307,41 +247,7 @@ export default function CadastrarVagaPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="flex justify-between items-center px-1">
-                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850]">Requisitos / Exigências</label>
-                <span className="text-[10px] text-[#6f7881] font-bold">Pressione Enter para adicionar</span>
-              </div>
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  placeholder="Ex: Experiência anterior em cozinha" 
-                  className="flex-1 px-6 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all"
-                  value={reqInput}
-                  onChange={e => setReqInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addRequirement())}
-                />
-                <button 
-                  type="button"
-                  onClick={addRequirement}
-                  className="p-4 bg-[#00628c] text-white rounded-2xl hover:scale-105 transition-transform"
-                >
-                  <Plus className="w-6 h-6" />
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {formData.requirements.map((req, idx) => (
-                  <span key={idx} className="flex items-center gap-2 px-4 py-2 bg-[#00628c]/5 text-[#00628c] font-bold rounded-xl border border-[#00628c]/10">
-                    {req}
-                    <button type="button" onClick={() => removeRequirement(idx)}>
-                      <X className="w-4 h-4 hover:text-red-500 transition-colors" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Anexo / Arquivo</label>
+              <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Anexo / Arquivo (Opcional)</label>
               <div 
                 onClick={() => attachmentInputRef.current?.click()}
                 className="w-full border-2 border-dashed border-[#bec8d1] rounded-2xl p-8 flex flex-col items-center justify-center gap-4 bg-[#f6f3f2]/30 hover:bg-[#00628c]/5 hover:border-[#00628c] transition-all cursor-pointer group"
@@ -351,7 +257,7 @@ export default function CadastrarVagaPage() {
                 </div>
                 <div className="text-center">
                   <p className="font-bold text-[#3e4850] truncate max-w-xs md:max-w-md">
-                    {attachmentName || 'Clique para anexar um documento complementar'}
+                    {attachmentName || 'Clique para anexar um documento ou imagem'}
                   </p>
                   <p className="text-xs text-[#6f7881] mt-1">Formatos aceitos: PDF, DOCX, Imagens (Máx. 5MB)</p>
                 </div>
@@ -372,10 +278,10 @@ export default function CadastrarVagaPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="w-6 h-6 animate-spin" />
-                  Cadastrando...
+                  Enviando...
                 </>
               ) : (
-                'Anunciar Vaga'
+                'Divulgar Oportunidade'
               )}
             </button>
           </form>

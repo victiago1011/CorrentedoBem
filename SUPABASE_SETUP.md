@@ -21,6 +21,8 @@ create table if not exists jobs (
   location text not null,
   email text,
   phone text,
+  site_url text,
+  attachment_url text,
   type text not null,
   area text not null,
   salary text,
@@ -59,6 +61,7 @@ create table if not exists negocios (
   description text,
   contact_email text,
   contact_phone text,
+  attachment_url text,
   type text, -- 'Sócio', 'Investimento', 'Parceria', 'Venda'
   status text default 'pending', -- 'pending', 'active', 'rejected', 'closed'
   created_at timestamp with time zone default timezone('utc'::text, now())

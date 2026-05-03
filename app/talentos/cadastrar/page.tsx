@@ -127,10 +127,10 @@ export default function CadastrarTalentoPage() {
             Seu currículo foi enviado e está aguardando aprovação dos nossos administradores. Em breve ele estará visível na Galeria de Talentos.
           </p>
           <Link 
-            href="/talentos" 
+            href="/" 
             className="inline-block w-full py-4 bg-[#00628c] text-white font-bold rounded-2xl hover:bg-[#004c6d] transition-all shadow-lg shadow-[#00628c]/20"
           >
-            Ir para Galeria
+            Voltar para o início
           </Link>
         </motion.div>
       </div>
@@ -140,9 +140,9 @@ export default function CadastrarTalentoPage() {
   return (
     <div className="min-h-screen bg-[#fcf9f8] py-12 px-4 md:px-8">
       <div className="max-w-3xl mx-auto">
-        <Link href="/talentos" className="inline-flex items-center gap-2 text-[#3e4850] hover:text-[#00628c] font-bold mb-10 transition-colors">
+        <Link href="/" className="inline-flex items-center gap-2 text-[#3e4850] hover:text-[#00628c] font-bold mb-10 transition-colors">
           <ArrowLeft className="w-5 h-5" />
-          Voltar para Galeria
+          Voltar para o início
         </Link>
 
         <div className="bg-white rounded-[2.5rem] shadow-xl p-8 md:p-12 border border-[#bec8d1]/10">

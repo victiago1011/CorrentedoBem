@@ -140,7 +140,7 @@ function VagasContent() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-16">
           <div className="z-10">
             <h1 className="text-4xl md:text-6xl font-extrabold text-[#00628c] font-headline leading-tight mb-6">
-              Encontre sua <span className="text-[#964900]">Oportunidade</span>
+              Encontre sua <span className="text-[#bff444]">Vaga</span>
             </h1>
             <p className="text-[#3e4850] text-lg mb-8 max-w-xl">
               Conectamos talentos dedicados a causas que transformam vidas. Busque por vagas que ressoam com seu propósito.

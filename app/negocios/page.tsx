@@ -19,7 +19,9 @@ import {
   Handshake,
   TrendingUp,
   Globe,
-  Users
+  Users,
+  Trophy,
+  Award
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/lib/supabase';
@@ -59,6 +61,7 @@ function NegociosContent() {
     { name: 'Tecnologia', icon: <TrendingUp className="w-5 h-5" /> },
     { name: 'Serviços', icon: <Briefcase className="w-5 h-5" /> },
     { name: 'Franquias', icon: <Building2 className="w-5 h-5" /> },
+    { name: 'Esportes', icon: <Trophy className="w-5 h-5" /> },
     { name: 'Outros', icon: <Filter className="w-5 h-5" /> },
   ];
 
@@ -66,6 +69,7 @@ function NegociosContent() {
     { name: 'Sócio', icon: <Users className="w-4 h-4" /> },
     { name: 'Investimento', icon: <TrendingUp className="w-4 h-4" /> },
     { name: 'Parceria', icon: <Handshake className="w-4 h-4" /> },
+    { name: 'Patrocínio', icon: <Award className="w-4 h-4" /> },
     { name: 'Venda', icon: <DollarSign className="w-4 h-4" /> },
   ];
 
