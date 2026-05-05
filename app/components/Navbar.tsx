@@ -26,7 +26,7 @@ export function Navbar() {
     { name: 'Vagas', href: '/vagas', icon: <Briefcase className="w-4 h-4" /> },
     { name: 'Currículos', href: '/talentos', icon: <FileText className="w-4 h-4" /> },
     { name: 'Negócios', href: '/negocios', icon: <TrendingUp className="w-4 h-4" /> },
-    { name: 'Notícias', href: '#', icon: <Newspaper className="w-4 h-4" /> },
+    { name: 'Notícias', href: '/noticias', icon: <Newspaper className="w-4 h-4" /> },
     { name: 'Como Funciona', href: '/#como-funciona', icon: <Info className="w-4 h-4" /> },
   ];
 

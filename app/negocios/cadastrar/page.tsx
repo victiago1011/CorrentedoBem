@@ -12,12 +12,14 @@ import {
   Loader2,
   Mail,
   Phone,
+  Link as LinkIcon,
   Users,
   Handshake,
   DollarSign,
   Trophy,
   Award,
-  Upload
+  Upload,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/lib/supabase';
@@ -26,12 +28,15 @@ import Link from 'next/link';
 export default function CadastrarNegocioPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     owner_name: '',
+    contact_name: '',
     contact_email: '',
     contact_phone: '',
     location: '',
+    link: '',
     type: 'Parceria',
     area: 'Serviços',
     description: '',
@@ -52,8 +57,13 @@ export default function CadastrarNegocioPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setShowConfirmModal(true);
+  };
+
+  const handleFinalSubmit = async () => {
+    setShowConfirmModal(false);
     setIsLoading(true);
 
     try {
@@ -62,21 +72,32 @@ export default function CadastrarNegocioPage() {
         .insert([{
           title: formData.title,
           owner_name: formData.owner_name,
-          contact_email: formData.contact_email,
-          contact_phone: formData.contact_phone,
-          location: formData.location,
-          type: formData.type,
-          area: formData.area,
-          description: formData.description,
-          attachment_url: formData.attachment_url,
+          contact_name: formData.contact_name,
+          contact_email: formData.contact_email || null,
+          contact_phone: formData.contact_phone || null,
+          location: formData.location || null,
+          link: formData.link || null,
+          type: formData.type || null,
+          area: formData.area || null,
+          description: formData.description || null,
+          attachment_url: formData.attachment_url || null,
           status: 'pending'
         }]);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro detalhado do Supabase:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw new Error(`${error.message} (${error.hint || 'Sem dicas adicionais'})`);
+      }
       setIsSuccess(true);
     } catch (error: any) {
       console.error('Erro ao cadastrar negócio:', error);
-      alert(`Erro ao cadastrar negócio: ${error.message}`);
+      const msg = error.message || 'Erro desconhecido';
+      alert(`Erro no Supabase: ${msg}\n\nVerifique se o SQL foi executado corretamente.`);
     } finally {
       setIsLoading(false);
     }
@@ -125,14 +146,14 @@ export default function CadastrarNegocioPage() {
           <form onSubmit={handleSubmit} className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Título da Oportunidade</label>
+                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Título da Oportunidade *</label>
                 <div className="relative">
                   <TrendingUp className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
                   <input 
                     required
                     type="text" 
                     placeholder="Ex: Expansão de Franquia" 
-                    className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all"
+                    className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all text-[#1b1c1c]"
                     value={formData.title}
                     onChange={e => setFormData({...formData, title: e.target.value})}
                   />
@@ -140,16 +161,31 @@ export default function CadastrarNegocioPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Nome do Negócio / Empresa</label>
+                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Nome do Negócio / Empresa *</label>
                 <div className="relative">
                   <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
                   <input 
                     required
                     type="text" 
                     placeholder="Ex: Café Bela Vista" 
-                    className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all"
+                    className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all text-[#1b1c1c]"
                     value={formData.owner_name}
                     onChange={e => setFormData({...formData, owner_name: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Nome do Responsável *</label>
+                <div className="relative">
+                  <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
+                  <input 
+                    required
+                    type="text" 
+                    placeholder="Seu nome completo" 
+                    className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all text-[#1b1c1c]"
+                    value={formData.contact_name}
+                    onChange={e => setFormData({...formData, contact_name: e.target.value})}
                   />
                 </div>
               </div>
@@ -159,10 +195,9 @@ export default function CadastrarNegocioPage() {
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
                   <input 
-                    required
                     type="email" 
                     placeholder="contato@exemplo.com" 
-                    className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all"
+                    className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all text-[#1b1c1c]"
                     value={formData.contact_email}
                     onChange={e => setFormData({...formData, contact_email: e.target.value})}
                   />
@@ -174,12 +209,25 @@ export default function CadastrarNegocioPage() {
                 <div className="relative">
                   <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
                   <input 
-                    required
                     type="tel" 
                     placeholder="(00) 00000-0000" 
-                    className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all"
+                    className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all text-[#1b1c1c]"
                     value={formData.contact_phone}
                     onChange={e => setFormData({...formData, contact_phone: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Link (Site, Redes Sociais, etc)</label>
+                <div className="relative">
+                  <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
+                  <input 
+                    type="url" 
+                    placeholder="https://..." 
+                    className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all text-[#1b1c1c]"
+                    value={formData.link}
+                    onChange={e => setFormData({...formData, link: e.target.value})}
                   />
                 </div>
               </div>
@@ -189,10 +237,9 @@ export default function CadastrarNegocioPage() {
                 <div className="relative">
                   <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
                   <input 
-                    required
                     type="text" 
                     placeholder="Ex: Porto Alegre, RS" 
-                    className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all"
+                    className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all text-[#1b1c1c]"
                     value={formData.location}
                     onChange={e => setFormData({...formData, location: e.target.value})}
                   />
@@ -236,10 +283,9 @@ export default function CadastrarNegocioPage() {
               <div className="relative">
                 <AlignLeft className="absolute left-4 top-4 w-5 h-5 text-[#6f7881]" />
                 <textarea 
-                  required
                   rows={6}
                   placeholder="Descreva o que sua empresa faz, o que está buscando e quais os benefícios da parceria..." 
-                  className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all resize-none"
+                  className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all resize-none text-[#1b1c1c]"
                   value={formData.description}
                   onChange={e => setFormData({...formData, description: e.target.value})}
                 />
@@ -287,6 +333,42 @@ export default function CadastrarNegocioPage() {
           </form>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      <AnimatePresence>
+        {showConfirmModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-[2.5rem] p-8 md:p-10 max-w-md w-full shadow-2xl border border-[#bec8d1]/20 text-center"
+            >
+              <div className="w-16 h-16 bg-[#00628c]/10 rounded-2xl flex items-center justify-center mx-auto mb-6 text-[#00628c]">
+                <FileText className="w-8 h-8" />
+              </div>
+              <h3 className="text-2xl font-black text-[#1a2b3b] mb-4">Confirmar Envio?</h3>
+              <p className="text-[#3e4850] mb-8 leading-relaxed">
+                Você revisou as informações e deseja realmente publicar sua oportunidade de negócio?
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <button 
+                  onClick={() => setShowConfirmModal(false)}
+                  className="py-4 px-6 bg-[#f6f3f2] text-[#3e4850] font-bold rounded-2xl hover:bg-[#e8e4e2] transition-all"
+                >
+                  Revisar
+                </button>
+                <button 
+                  onClick={handleFinalSubmit}
+                  className="py-4 px-6 bg-[#fc820c] text-white font-bold rounded-2xl hover:bg-[#e6760b] transition-all shadow-lg shadow-[#fc820c]/20"
+                >
+                  Sim, Publicar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -26,6 +26,7 @@ import Image from 'next/image';
 export default function CadastrarTalentoPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -35,7 +36,7 @@ export default function CadastrarTalentoPage() {
     role: '',
     summary: '',
     skills: [] as string[],
-    image: `https://picsum.photos/seed/${Math.random()}/200/200`,
+    image: 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y',
     resume_url: ''
   });
   const [skillInput, setSkillInput] = useState('');
@@ -83,29 +84,39 @@ export default function CadastrarTalentoPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setShowConfirmModal(true);
+  };
+
+  const handleFinalSubmit = async () => {
+    setShowConfirmModal(false);
     setIsLoading(true);
 
     try {
-      // Log for debugging
-      console.log('Enviando dados:', { ...formData, status: 'pending' });
+      const { resume_url, ...rest } = formData;
+      const submissionData = {
+        ...rest,
+        cv_url: resume_url,
+        status: 'pending'
+      };
 
-      const { error } = await supabase
-        .from('candidates')
-        .insert([{
-          ...formData,
-          status: 'pending'
-        }]);
+      console.log('Enviando dados:', submissionData);
+
+      const { error, data } = await supabase
+        .from('talentos')
+        .insert([submissionData])
+        .select();
 
       if (error) {
-        console.error('Supabase error detailed:', error.message, error.details, error.hint, error.code);
-        throw error;
+        console.error('Erro Supabase:', error);
+        throw new Error(error.message);
       }
+      
       setIsSuccess(true);
     } catch (error: any) {
       console.error('Erro ao cadastrar talento:', error);
-      alert(`Ocorreu um erro ao cadastrar seu perfil: ${error.message || 'Tente novamente.'}`);
+      alert(`Erro: ${error.message || 'Verifique sua conexão ou se houve um problema no banco de dados.'}`);
     } finally {
       setIsLoading(false);
     }
@@ -124,7 +135,7 @@ export default function CadastrarTalentoPage() {
           </div>
           <h2 className="text-3xl font-extrabold text-[#00628c] mb-4 font-headline">Perfil Enviado!</h2>
           <p className="text-[#3e4850] mb-10 leading-relaxed">
-            Seu currículo foi enviado e está aguardando aprovação dos nossos administradores. Em breve ele estará visível na Galeria de Talentos.
+            Seu currículo foi enviado e está aguardando aprovação. Em breve seu talento estará visível para empresas com propósito.
           </p>
           <Link 
             href="/" 
@@ -138,7 +149,7 @@ export default function CadastrarTalentoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fcf9f8] py-12 px-4 md:px-8">
+    <div className="min-h-screen bg-[#fcf9f8] py-12 px-4 md:px-8 font-body">
       <div className="max-w-3xl mx-auto">
         <Link href="/" className="inline-flex items-center gap-2 text-[#3e4850] hover:text-[#00628c] font-bold mb-10 transition-colors">
           <ArrowLeft className="w-5 h-5" />
@@ -148,13 +159,14 @@ export default function CadastrarTalentoPage() {
         <div className="bg-white rounded-[2.5rem] shadow-xl p-8 md:p-12 border border-[#bec8d1]/10">
           <header className="mb-12">
             <h1 className="text-4xl font-extrabold text-[#00628c] font-headline mb-4">Cadastrar Currículo</h1>
-            <p className="text-[#3e4850]">Crie seu perfil profissional e conecte-se com empresas com propósito.</p>
+            <p className="text-[#3e4850]">Mostre seu talento para empresas que valorizam a dignidade humana.</p>
           </header>
 
           <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Avatar Selection */}
             <div className="flex justify-center mb-10">
                <div className="relative group">
-                  <div className="w-32 h-32 rounded-[2.5rem] bg-[#f6f3f2] overflow-hidden border-2 border-dashed border-[#bec8d1] flex items-center justify-center group-hover:border-[#00628c] transition-colors relative shadow-inner">
+                  <div className="w-32 h-32 rounded-[2.5rem] bg-[#f6f3f2] overflow-hidden border-2 border-dashed border-[#bec8d1] flex items-center justify-center group-hover:border-[#00628c] transition-colors relative shadow-inner text-white">
                     <Image 
                       src={formData.image} 
                       alt="Avatar" 
@@ -164,9 +176,9 @@ export default function CadastrarTalentoPage() {
                     />
                     <div 
                       onClick={() => fileInputRef.current?.click()}
-                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
+                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer text-white font-bold text-[10px] uppercase tracking-widest text-center px-4"
                     >
-                      <ImageIcon className="w-8 h-8 text-white" />
+                      {formData.image.includes('gravatar') ? 'Adicionar Minha Foto' : 'Trocar Foto'}
                     </div>
                   </div>
                   <input 
@@ -176,26 +188,38 @@ export default function CadastrarTalentoPage() {
                     accept="image/*" 
                     onChange={handleImageChange}
                   />
-                  <button 
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute -bottom-2 -right-2 w-10 h-10 bg-white shadow-xl rounded-full flex items-center justify-center text-[#00628c] hover:scale-110 active:scale-95 transition-all border border-[#bec8d1]/20"
-                    title="Mudar foto"
-                  >
-                    <Plus className="w-5 h-5" />
-                  </button>
+                  {!formData.image.includes('gravatar') ? (
+                    <button 
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, image: 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y' }))}
+                      className="absolute -bottom-2 -right-2 w-10 h-10 bg-red-100 shadow-xl rounded-full flex items-center justify-center text-red-600 hover:bg-red-200 active:scale-95 transition-all border border-red-200"
+                      title="Remover foto"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  ) : (
+                    <button 
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute -bottom-2 -right-2 w-10 h-10 bg-white shadow-xl rounded-full flex items-center justify-center text-[#00628c] hover:scale-110 active:scale-95 transition-all border border-[#bec8d1]/20"
+                      title="Adicionar foto"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  )}
                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Obrigatórios */}
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Nome Completo</label>
+                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Nome Completo *</label>
                 <div className="relative">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
                   <input 
                     required
                     type="text" 
-                    placeholder="Como você gostaria de ser chamado?" 
+                    placeholder="Seu nome" 
                     className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all text-[#1b1c1c]"
                     value={formData.name}
                     onChange={e => setFormData({...formData, name: e.target.value})}
@@ -204,7 +228,7 @@ export default function CadastrarTalentoPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">E-mail de Contato</label>
+                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">E-mail de Contato *</label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
                   <input 
@@ -219,7 +243,7 @@ export default function CadastrarTalentoPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Telefone / WhatsApp</label>
+                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Telefone / WhatsApp *</label>
                 <div className="relative">
                   <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
                   <input 
@@ -233,12 +257,12 @@ export default function CadastrarTalentoPage() {
                 </div>
               </div>
 
+              {/* Não obrigatórios */}
               <div className="space-y-2">
                 <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Cidade / Estado</label>
                 <div className="relative">
                   <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
                   <input 
-                    required
                     type="text" 
                     placeholder="Ex: Rio de Janeiro, RJ" 
                     className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all text-[#1b1c1c]"
@@ -253,9 +277,8 @@ export default function CadastrarTalentoPage() {
                 <div className="relative">
                   <Star className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
                   <input 
-                    required
                     type="text" 
-                    placeholder="Ex: Designer Gráfico" 
+                    placeholder="Ex: Auxiliar de Cozinha" 
                     className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all text-[#1b1c1c]"
                     value={formData.role}
                     onChange={e => setFormData({...formData, role: e.target.value})}
@@ -287,9 +310,8 @@ export default function CadastrarTalentoPage() {
               <div className="relative">
                 <AlignLeft className="absolute left-4 top-4 w-5 h-5 text-[#6f7881]" />
                 <textarea 
-                  required
                   rows={4}
-                  placeholder="Conte um pouco sobre sua trajetória e o que você busca..." 
+                  placeholder="Conte um pouco sobre suas experiências..." 
                   className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all resize-none text-[#1b1c1c]"
                   value={formData.summary}
                   onChange={e => setFormData({...formData, summary: e.target.value})}
@@ -298,19 +320,18 @@ export default function CadastrarTalentoPage() {
             </div>
 
             <div className="space-y-4">
-              <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Currículo (PDF/DOCX)</label>
+              <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Currículo (Opcional)</label>
               <div 
                 onClick={() => resumeInputRef.current?.click()}
                 className="w-full border-2 border-dashed border-[#bec8d1] rounded-2xl p-8 flex flex-col items-center justify-center gap-4 bg-[#f6f3f2]/30 hover:bg-[#00628c]/5 hover:border-[#00628c] transition-all cursor-pointer group"
               >
-                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
-                  <Upload className="w-6 h-6 text-[#00628c]" />
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform text-[#00628c]">
+                  <Upload className="w-6 h-6" />
                 </div>
                 <div className="text-center">
                   <p className="font-bold text-[#3e4850] truncate max-w-xs md:max-w-md">
-                    {resumeName || 'Clique para anexar seu currículo'}
+                    {resumeName || 'Clique para anexar arquivo'}
                   </p>
-                  <p className="text-xs text-[#6f7881] mt-1">Formatos aceitos: PDF, DOCX (Máx. 5MB)</p>
                 </div>
                 <input 
                   type="file"
@@ -323,14 +344,11 @@ export default function CadastrarTalentoPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="flex justify-between items-center px-1">
-                <label className="text-xs font-black uppercase tracking-widest text-[#3e4850]">Habilidades / Competências</label>
-                <span className="text-[10px] text-[#6f7881] font-bold">Pressione Enter para adicionar</span>
-              </div>
+              <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Habilidades</label>
               <div className="flex gap-2">
                 <input 
                   type="text" 
-                  placeholder="Ex: Photoshop, Atendimento ao Cliente..." 
+                  placeholder="Ex: Trabalho em Equipe, Excel..." 
                   className="flex-1 px-6 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all text-[#1b1c1c]"
                   value={skillInput}
                   onChange={e => setSkillInput(e.target.value)}
@@ -357,13 +375,14 @@ export default function CadastrarTalentoPage() {
             </div>
 
             <button 
+              type="submit"
               disabled={isLoading}
               className="w-full py-5 bg-[#00628c] text-white font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-[#004c6d] transition-all shadow-xl shadow-[#00628c]/20 flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <>
                   <Loader2 className="w-6 h-6 animate-spin" />
-                  Cadastrando...
+                  Salvando...
                 </>
               ) : (
                 'Salvar Perfil Profissional'
@@ -372,6 +391,42 @@ export default function CadastrarTalentoPage() {
           </form>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      <AnimatePresence>
+        {showConfirmModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-[2.5rem] p-8 md:p-10 max-w-md w-full shadow-2xl border border-[#bec8d1]/20 text-center"
+            >
+              <div className="w-16 h-16 bg-[#00628c]/10 rounded-2xl flex items-center justify-center mx-auto mb-6 text-[#00628c]">
+                <FileText className="w-8 h-8" />
+              </div>
+              <h3 className="text-2xl font-black text-[#1a2b3b] mb-4">Confirmar Envio?</h3>
+              <p className="text-[#3e4850] mb-8 leading-relaxed">
+                Você revisou as informações e deseja realmente enviar seu currículo para aprovação?
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <button 
+                  onClick={() => setShowConfirmModal(false)}
+                  className="py-4 px-6 bg-[#f6f3f2] text-[#3e4850] font-bold rounded-2xl hover:bg-[#e8e4e2] transition-all"
+                >
+                  Revisar
+                </button>
+                <button 
+                  onClick={handleFinalSubmit}
+                  className="py-4 px-6 bg-[#00628c] text-white font-bold rounded-2xl hover:bg-[#004c6d] transition-all shadow-lg shadow-[#00628c]/20"
+                >
+                  Sim, Enviar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

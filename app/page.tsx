@@ -47,18 +47,19 @@ interface Candidate {
   name: string;
   location: string;
   area: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'active' | 'rejected';
   role: string;
   summary: string;
   skills: string[];
   image: string;
+  cv_url?: string;
   verified?: boolean;
   created_at?: string;
 }
 
 export default function LandingPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'candidatos' | 'empresas'>('candidatos');
+  const [activeTab, setActiveTab] = useState<'candidatos' | 'empresas' | 'negocios'>('candidatos');
   const [searchValue, setSearchValue] = useState('');
   const [featuredJobs, setFeaturedJobs] = useState<Job[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(true);
@@ -73,15 +74,15 @@ export default function LandingPage() {
       
       const [jobsRes, candidatesRes] = await Promise.all([
         supabase
-          .from('jobs')
+          .from('vagas')
           .select('*')
-          .eq('status', 'active')
+          .in('status', ['active', 'approved'])
           .order('created_at', { ascending: false })
           .limit(3),
         supabase
-          .from('candidates')
+          .from('talentos')
           .select('*')
-          .eq('status', 'approved')
+          .in('status', ['active', 'approved'])
           .order('created_at', { ascending: false })
           .limit(3)
       ]);
@@ -413,24 +414,29 @@ export default function LandingPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
               <div>
                 <h2 className="text-3xl lg:text-4xl font-extrabold text-[#1b1c1c] tracking-tight mb-8 font-headline">Como Funciona</h2>
-                {/* Tabs */}
-                <div className="flex gap-4 md:gap-6 mb-8 lg:mb-12 border-b border-[#bec8d1]/30">
+                          <div className="flex flex-wrap gap-4 md:gap-8 mb-8 lg:mb-12 border-b border-[#bec8d1]/30">
                   <button 
                     onClick={() => setActiveTab('candidatos')}
-                    className={`pb-4 font-bold transition-all text-sm md:text-base ${activeTab === 'candidatos' ? 'text-[#00628c] border-b-2 border-[#00628c]' : 'text-[#3e4850] hover:text-[#1b1c1c]'}`}
+                    className={`pb-4 font-bold transition-all text-xs md:text-base ${activeTab === 'candidatos' ? 'text-[#00628c] border-b-2 border-[#00628c]' : 'text-[#3e4850] hover:text-[#1b1c1c]'}`}
                   >
                     Para Candidatos
                   </button>
                   <button 
                     onClick={() => setActiveTab('empresas')}
-                    className={`pb-4 font-bold transition-all text-sm md:text-base ${activeTab === 'empresas' ? 'text-[#00628c] border-b-2 border-[#00628c]' : 'text-[#3e4850] hover:text-[#1b1c1c]'}`}
+                    className={`pb-4 font-bold transition-all text-xs md:text-base ${activeTab === 'empresas' ? 'text-[#00628c] border-b-2 border-[#00628c]' : 'text-[#3e4850] hover:text-[#1b1c1c]'}`}
                   >
                     Para Empresas
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('negocios')}
+                    className={`pb-4 font-bold transition-all text-xs md:text-base ${activeTab === 'negocios' ? 'text-[#00628c] border-b-2 border-[#00628c]' : 'text-[#3e4850] hover:text-[#1b1c1c]'}`}
+                  >
+                    Para Negócios
                   </button>
                 </div>
                 <div className="space-y-12">
                   <AnimatePresence mode="wait">
-                    {activeTab === 'candidatos' ? (
+                    {activeTab === 'candidatos' && (
                       <motion.div 
                         key="candidatos"
                         initial={{ opacity: 0, y: 10 }}
@@ -438,29 +444,30 @@ export default function LandingPage() {
                         exit={{ opacity: 0, y: -10 }}
                         className="space-y-12"
                       >
-                        <div className="flex gap-6">
+                        <div className="flex gap-6 text-left">
                           <div className="flex-shrink-0 w-12 h-12 bg-[#00628c] text-white rounded-full flex items-center justify-center font-bold text-xl">1</div>
                           <div>
                             <h3 className="text-xl font-bold mb-2 font-headline">Crie seu Perfil</h3>
-                            <p className="text-[#3e4850] leading-relaxed">Destaque suas habilidades e experiências, mesmo as informais. Nossa IA ajuda a traduzir seu valor para o mercado.</p>
+                            <p className="text-[#3e4850] leading-relaxed">Destaque suas habilidades e experiências, mesmo as informais. Nossa rede valoriza sua história real.</p>
                           </div>
                         </div>
-                        <div className="flex gap-6">
+                        <div className="flex gap-6 text-left">
                           <div className="flex-shrink-0 w-12 h-12 bg-[#00628c] text-white rounded-full flex items-center justify-center font-bold text-xl">2</div>
                           <div>
                             <h3 className="text-xl font-bold mb-2 font-headline">Busque Oportunidades</h3>
-                            <p className="text-[#3e4850] leading-relaxed">Filtre vagas por localização e afinidade. Receba notificações de empresas que valorizam sua história.</p>
+                            <p className="text-[#3e4850] leading-relaxed">Filtre vagas por localização e afinidade. Receba notificações de empresas que valorizam o impacto social.</p>
                           </div>
                         </div>
-                        <div className="flex gap-6">
+                        <div className="flex gap-6 text-left">
                           <div className="flex-shrink-0 w-12 h-12 bg-[#00628c] text-white rounded-full flex items-center justify-center font-bold text-xl">3</div>
                           <div>
                             <h3 className="text-xl font-bold mb-2 font-headline">Conecte-se e Trabalhe</h3>
-                            <p className="text-[#3e4850] leading-relaxed">Agende entrevistas diretamente pela plataforma e receba suporte para sua integração no novo emprego.</p>
+                            <p className="text-[#3e4850] leading-relaxed">Agende entrevistas e receba suporte para sua integração no novo emprego com dignidade.</p>
                           </div>
                         </div>
                       </motion.div>
-                    ) : (
+                    )}
+                    {activeTab === 'empresas' && (
                       <motion.div 
                         key="empresas"
                         initial={{ opacity: 0, y: 10 }}
@@ -468,25 +475,56 @@ export default function LandingPage() {
                         exit={{ opacity: 0, y: -10 }}
                         className="space-y-12"
                       >
-                        <div className="flex gap-6">
+                        <div className="flex gap-6 text-left">
                           <div className="flex-shrink-0 w-12 h-12 bg-[#964900] text-white rounded-full flex items-center justify-center font-bold text-xl">1</div>
                           <div>
                             <h3 className="text-xl font-bold mb-2 font-headline">Anuncie sua Vaga</h3>
-                            <p className="text-[#3e4850] leading-relaxed">Publique oportunidades focadas em impacto social. Defina o perfil desejado e alcance talentos qualificados.</p>
+                            <p className="text-[#3e4850] leading-relaxed">Publique oportunidades focadas em impacto social. Alcance talentos resilientes e preparados.</p>
                           </div>
                         </div>
-                        <div className="flex gap-6">
+                        <div className="flex gap-6 text-left">
                           <div className="flex-shrink-0 w-12 h-12 bg-[#964900] text-white rounded-full flex items-center justify-center font-bold text-xl">2</div>
                           <div>
                             <h3 className="text-xl font-bold mb-2 font-headline">Analise Currículos</h3>
-                            <p className="text-[#3e4850] leading-relaxed">Acesse perfis detalhados e validados. Utilize nossos filtros inteligentes para encontrar o match perfeito.</p>
+                            <p className="text-[#3e4850] leading-relaxed">Acesse perfis validados pela nossa rede. Avalie mais do que técnica: veja propósito e superação.</p>
                           </div>
                         </div>
-                        <div className="flex gap-6">
+                        <div className="flex gap-6 text-left">
                           <div className="flex-shrink-0 w-12 h-12 bg-[#964900] text-white rounded-full flex items-center justify-center font-bold text-xl">3</div>
                           <div>
-                            <h3 className="text-xl font-bold mb-2 font-headline">Contrate com Propósito</h3>
-                            <p className="text-[#3e4850] leading-relaxed">Transforme sua cultura organizacional através da diversidade e inclusão social real.</p>
+                            <h3 className="text-xl font-bold mb-2 font-headline">Contrate com Dignidade</h3>
+                            <p className="text-[#3e4850] leading-relaxed">Gere valor real para o seu negócio enquanto promove a inclusão social efetiva na sua equipe.</p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                    {activeTab === 'negocios' && (
+                      <motion.div 
+                        key="negocios"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="space-y-12"
+                      >
+                        <div className="flex gap-6 text-left">
+                          <div className="flex-shrink-0 w-12 h-12 bg-[#00628c] text-white rounded-full flex items-center justify-center font-bold text-xl">1</div>
+                          <div>
+                            <h3 className="text-xl font-bold mb-2 font-headline">Seja Sócio ou Patrocine</h3>
+                            <p className="text-[#3e4850] leading-relaxed">Apadrinhe talentos ou patrocine cursos de capacitação. Fortaleça sua marca com responsabilidade social.</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-6 text-left">
+                          <div className="flex-shrink-0 w-12 h-12 bg-[#00628c] text-white rounded-full flex items-center justify-center font-bold text-xl">2</div>
+                          <div>
+                            <h3 className="text-xl font-bold mb-2 font-headline">Invista em Ideias</h3>
+                            <p className="text-[#3e4850] leading-relaxed">Conecte-se com novos negócios sociais e ajude a financiar projetos que geram autonomia e renda.</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-6 text-left">
+                          <div className="flex-shrink-0 w-12 h-12 bg-[#00628c] text-white rounded-full flex items-center justify-center font-bold text-xl">3</div>
+                          <div>
+                            <h3 className="text-xl font-bold mb-2 font-headline">Cadastre seu Negócio</h3>
+                            <p className="text-[#3e4850] leading-relaxed">Ofereça mentorias, serviços ou produtos com impacto. Integre seu ecossistema à nossa rede do bem.</p>
                           </div>
                         </div>
                       </motion.div>
@@ -575,12 +613,15 @@ export default function LandingPage() {
               <div className="relative z-10 max-w-3xl mx-auto">
                 <h2 className="text-3xl lg:text-5xl font-extrabold mb-6 font-headline">Pronto para fazer parte desta corrente?</h2>
                 <p className="text-base lg:text-lg opacity-90 mb-8 lg:mb-10 leading-relaxed">Seja você um profissional em busca de espaço ou uma empresa querendo transformar vidas, seu lugar é aqui.</p>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center">
                   <Link href="/talentos/cadastrar" className="bg-white text-[#00628c] px-8 lg:px-10 py-3 lg:py-4 rounded-2xl font-bold text-base lg:text-lg hover:scale-105 transition-transform shadow-lg">
                     Cadastrar Currículo
                   </Link>
                   <Link href="/vagas/cadastrar" className="bg-[#bff444] text-[#141f00] px-8 lg:px-10 py-3 lg:py-4 rounded-2xl font-bold text-base lg:text-lg hover:scale-105 transition-transform shadow-lg">
                     Anunciar uma Vaga
+                  </Link>
+                  <Link href="/negocios/cadastrar" className="bg-[#fc820c] text-white px-8 lg:px-10 py-3 lg:py-4 rounded-2xl font-bold text-base lg:text-lg hover:scale-105 transition-transform shadow-lg">
+                    Publicar seu Negócio
                   </Link>
                 </div>
               </div>
@@ -593,54 +634,40 @@ export default function LandingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-[#f6f3f2] border-t border-[#bec8d1]/20 py-12 lg:py-16 px-4 md:px-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 lg:gap-12 max-w-7xl mx-auto">
-          <div className="col-span-1 sm:col-span-2 md:col-span-1">
-            <div className="text-xl font-bold text-[#00628c] mb-6 font-headline">Corrente do Bem</div>
-            <p className="text-sm leading-relaxed text-[#3e4850]">
-              Nossa missão é conectar pessoas em situação de vulnerabilidade a oportunidades reais de trabalho, promovendo autonomia e dignidade através do emprego.
+      <footer className="bg-[#f0eded] py-16">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12 text-left">
+            <div className="col-span-1 lg:col-span-2">
+              <Link href="/" className="flex items-center gap-2 mb-6">
+                <div className="w-8 h-8 bg-[#00628c] rounded-lg flex items-center justify-center text-white">
+                  <Handshake className="w-5 h-5" />
+                </div>
+                <span className="text-xl font-bold text-[#00628c] font-headline">Corrente do Bem</span>
+              </Link>
+              <p className="text-[#3e4850] max-w-md leading-relaxed">
+                Transformando a busca por emprego em uma jornada de respeito e conexões verdadeiras. Conectando carreiras com dignidade.
+              </p>
+            </div>
+            <div>
+              <h4 className="text-xs font-black uppercase tracking-widest text-[#00628c] mb-6 text-left">Empresa</h4>
+              <ul className="space-y-4 text-left">
+                <li><Link href="#" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Sobre Nós</Link></li>
+                <li><Link href="#" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Privacidade</Link></li>
+                <li><Link href="#" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Termos de Uso</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-xs font-black uppercase tracking-widest text-[#00628c] mb-6 text-left">Suporte</h4>
+              <ul className="space-y-4 text-left">
+                <li><Link href="#" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Contato</Link></li>
+                <li><Link href="#" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Ajuda</Link></li>
+              </ul>
+            </div>
+          </div>
+          <div className="pt-8 border-t border-[#bec8d1]/30 text-center">
+            <p className="text-xs font-bold text-[#6f7881] uppercase tracking-widest text-center">
+              © 2024 Corrente do Bem. Todos os direitos reservados.
             </p>
-          </div>
-          <div>
-            <h4 className="font-bold text-[#00628c] mb-6 uppercase text-xs tracking-widest">Navegação</h4>
-            <ul className="space-y-4 text-sm">
-              <li><Link className="text-[#3e4850] hover:text-[#00628c] transition-colors" href="/vagas">Sobre Nós</Link></li>
-              <li><Link className="text-[#3e4850] hover:text-[#00628c] transition-colors" href="/talentos">Histórias de Sucesso</Link></li>
-              <li><Link className="text-[#3e4850] hover:text-[#00628c] transition-colors" href="/vagas">Relatório de Impacto 2024</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-bold text-[#00628c] mb-6 uppercase text-xs tracking-widest">Suporte</h4>
-            <ul className="space-y-4 text-sm">
-              <li><Link className="text-[#3e4850] hover:text-[#00628c] transition-colors" href="/vagas">Central de Ajuda</Link></li>
-              <li><Link className="text-[#3e4850] hover:text-[#00628c] transition-colors" href="/vagas">Termos de Uso</Link></li>
-              <li><Link className="text-[#3e4850] hover:text-[#00628c] transition-colors" href="/vagas">Privacidade</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-bold text-[#00628c] mb-6 uppercase text-xs tracking-widest">Social</h4>
-            <div className="flex gap-4">
-              <Link className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#00628c] hover:bg-[#00628c] hover:text-white transition-all shadow-sm" href="#">
-                <Share2 className="w-5 h-5" />
-              </Link>
-              <Link className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#00628c] hover:bg-[#00628c] hover:text-white transition-all shadow-sm" href="#">
-                <Globe className="w-5 h-5" />
-              </Link>
-            </div>
-            <div className="mt-8">
-              <div className="text-xs text-[#6f7881] mb-2 italic">Assine nossa newsletter</div>
-              <div className="flex gap-2">
-                <input className="bg-white border border-[#bec8d1]/30 rounded-lg text-xs px-3 py-2 w-full focus:ring-1 focus:ring-[#00628c] outline-none" placeholder="Seu e-mail" type="email"/>
-                <button className="bg-[#00628c] text-white px-4 py-2 rounded-lg text-xs font-bold">Ok</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="max-w-7xl mx-auto mt-16 pt-8 border-t border-[#bec8d1]/20 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-[#3e4850]">© 2026 Corrente do Bem. Dignidade e Conexão Humana.</p>
-          <div className="flex items-center gap-2 text-xs font-bold text-[#964900]">
-            <Handshake className="w-4 h-4" />
-            Feito com propósito social
           </div>
         </div>
       </footer>

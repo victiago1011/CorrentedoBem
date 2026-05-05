@@ -1,128 +1,188 @@
-# Configuração do Banco de Dados Supabase
+-- ==========================================
+-- 1. CRIAÇÃO DAS TABELAS (NOVO PADRÃO)
+-- ==========================================
 
-Para que o sistema **Corrente do Bem** funcione corretamente, você precisa criar as tabelas no seu projeto Supabase. 
-
-Siga os passos abaixo:
-1. Acesse o [Supabase Dashboard](https://supabase.com/dashboard).
-2. Selecione seu projeto.
-3. No menu lateral, clique em **SQL Editor**.
-4. Clique em **New Query**.
-5. Cole o código SQL abaixo e clique em **Run**.
-
-```sql
--- Habilitar a extensão para IDs aleatórios se necessário
-create extension if not exists "uuid-ossp";
-
--- TABELA DE VAGAS (JOBS)
-create table if not exists jobs (
-  id uuid default uuid_generate_v4() primary key,
+-- Tabela de Vagas
+CREATE TABLE IF NOT EXISTS public.vagas (
+  id uuid default gen_random_uuid() primary key,
   title text not null,
   company text not null,
-  location text not null,
+  location text,
   email text,
   phone text,
   site_url text,
   attachment_url text,
   type text not null,
-  area text not null,
+  area text not null default 'Outros',
   salary text,
   description text,
-  requirements text[] default '{}',
-  status text default 'pending', -- 'pending', 'active', 'rejected', 'closed'
+  requirements text[],
+  status text default 'pending', 
   verified boolean default false,
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- TABELA DE CANDIDATOS (CANDIDATES)
-create table if not exists candidates (
-  id uuid default uuid_generate_v4() primary key,
+-- Tabela de Talentos
+CREATE TABLE IF NOT EXISTS public.talentos (
+  id uuid default gen_random_uuid() primary key,
   name text not null,
-  email text not null,
-  phone text,
-  location text not null,
+  location text,
   area text not null,
-  role text not null,
+  role text,
   summary text,
-  skills text[] default '{}',
+  skills text[],
   image text,
-  resume_url text,
-  status text default 'pending', -- 'pending', 'approved', 'rejected'
+  cv_url text,
+  status text default 'pending',
   verified boolean default false,
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- TABELA DE NEGÓCIOS (BUSINESS)
-create table if not exists negocios (
-  id uuid default uuid_generate_v4() primary key,
+-- Tabela de Negócios
+CREATE TABLE IF NOT EXISTS public.negocios (
+  id uuid default gen_random_uuid() primary key,
   title text not null,
   owner_name text not null,
-  location text not null,
-  area text not null,
+  location text,
+  area text,
   description text,
   contact_email text,
   contact_phone text,
   attachment_url text,
-  type text, -- 'Sócio', 'Investimento', 'Parceria', 'Venda'
-  status text default 'pending', -- 'pending', 'active', 'rejected', 'closed'
+  type text,
+  status text default 'pending',
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- TABELA DE HISTÓRICO (HISTORY)
-create table if not exists history (
-  id uuid default uuid_generate_v4() primary key,
+-- Tabela de Histórico
+CREATE TABLE IF NOT EXISTS public.history (
+  id uuid default gen_random_uuid() primary key,
   action text not null,
   details text,
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- TABELA DE CONFIGURAÇÕES (SETTINGS)
-create table if not exists settings (
-  id bigint primary key generated always as identity,
+-- Tabela de Notícias
+CREATE TABLE IF NOT EXISTS public.noticias (
+  id uuid default gen_random_uuid() primary key,
+  title text not null,
+  slug text unique not null,
+  content text not null,
+  excerpt text,
+  image_url text,
+  author text,
+  category text,
+  status text default 'pending', -- pending, active, archived
+  published_at timestamp with time zone,
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+-- Tabela de Configurações
+CREATE TABLE IF NOT EXISTS public.settings (
+  id int8 primary key default 1,
   platform_name text default 'Corrente do Bem',
   contact_email text,
   manual_approval boolean default true,
-  auto_notifications boolean default true,
+  auto_notifications boolean default false,
   updated_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- Inserir configuração inicial se não existir
-insert into settings (platform_name, contact_email)
-values ('Corrente do Bem', 'contato@correntedobem.com.br')
-on conflict (id) do nothing;
+-- ==========================================
+-- 2. MIGRAÇÃO DE DADOS (JOBS -> VAGAS)
+-- ==========================================
 
--- POLÍTICAS DE SEGURANÇA (RLS)
--- Como este é um app de demonstração sem Auth complexo configurado ainda, 
--- você pode desativar o RLS ou criar políticas que permitem acesso público.
--- Para produção, configure autenticação e proteja as rotas.
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'jobs') THEN
+        INSERT INTO public.vagas (id, title, company, location, type, status, salary, description, requirements, verified, created_at, area)
+        SELECT 
+            id, 
+            title, 
+            company, 
+            location, 
+            type, 
+            CASE WHEN status = 'approved' THEN 'active' ELSE status END, -- Padroniza status
+            salary, 
+            description, 
+            requirements, 
+            verified, 
+            created_at, 
+            COALESCE(area, 'Geral')
+        FROM public.jobs
+        ON CONFLICT (id) DO NOTHING;
+    END IF;
+END $$;
 
-alter table jobs enable row level security;
-alter table candidates enable row level security;
-alter table history enable row level security;
-alter table settings enable row level security;
-alter table negocios enable row level security;
+-- ==========================================
+-- 3. MIGRAÇÃO DE DADOS (CANDIDATES -> TALENTOS)
+-- ==========================================
 
--- Permitir leitura pública
-create policy "Allow public read jobs" on jobs for select using (true);
-create policy "Allow public read candidates" on candidates for select using (true);
-create policy "Allow public read negocios" on negocios for select using (true);
-create policy "Allow public read history" on history for select using (true);
-create policy "Allow public read settings" on settings for select using (true);
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'candidates') THEN
+        -- Como a coluna resume_url pode não existir, usamos um bloco dinâmico ou verificamos a coluna
+        IF EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'candidates' AND column_name = 'resume_url') THEN
+            INSERT INTO public.talentos (id, name, location, area, status, role, summary, skills, image, verified, created_at, cv_url)
+            SELECT 
+                id, name, location, area, 
+                CASE WHEN status = 'approved' THEN 'active' ELSE status END, 
+                role, summary, skills, image, verified, created_at, resume_url
+            FROM public.candidates
+            ON CONFLICT (id) DO NOTHING;
+        ELSE
+            INSERT INTO public.talentos (id, name, location, area, status, role, summary, skills, image, verified, created_at)
+            SELECT 
+                id, name, location, area, 
+                CASE WHEN status = 'approved' THEN 'active' ELSE status END, 
+                role, summary, skills, image, verified, created_at
+            FROM public.candidates
+            ON CONFLICT (id) DO NOTHING;
+        END IF;
+    END IF;
+END $$;
 
--- Permitir inscrições públicas (insert)
-create policy "Allow public insert jobs" on jobs for insert with check (true);
-create policy "Allow public insert candidates" on candidates for insert with check (true);
-create policy "Allow public insert negocios" on negocios for insert with check (true);
+-- ==========================================
+-- 4. PADRONIZAÇÃO DE STATUS (OPCIONAL)
+-- ==========================================
 
--- Permitir que o admin (você) gerencie tudo
--- Nota: Em um app real, aqui restringiríamos por role de admin
-create policy "Allow all for admin" on jobs for all using (true) with check (true);
-create policy "Allow all for admin" on candidates for all using (true) with check (true);
-create policy "Allow all for admin" on negocios for all using (true) with check (true);
-create policy "Allow all for admin" on history for all using (true) with check (true);
-create policy "Allow all for admin" on settings for all using (true) with check (true);
-```
+UPDATE public.vagas SET status = 'active' WHERE status = 'approved';
+UPDATE public.talentos SET status = 'active' WHERE status = 'approved';
+UPDATE public.negocios SET status = 'active' WHERE status = 'approved';
+UPDATE public.noticias SET status = 'active' WHERE status = 'approved';
 
-### Configuração de Variáveis de Ambiente
-Não esqueça de adicionar estas variáveis no painel **Settings -> Secrets** do AI Studio:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+-- ==========================================
+-- 5. SEGURANÇA (RLS)
+-- ==========================================
+
+ALTER TABLE public.vagas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.talentos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.negocios ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.noticias ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
+
+-- IMPORTANTE: Remover políticas antigas se for rodar novamente
+DROP POLICY IF EXISTS "Public Read Vagas" ON public.vagas;
+DROP POLICY IF EXISTS "Public Read Talentos" ON public.talentos;
+DROP POLICY IF EXISTS "Public Read Negocios" ON public.negocios;
+DROP POLICY IF EXISTS "Public Read Noticias" ON public.noticias;
+DROP POLICY IF EXISTS "Public Insert Vagas" ON public.vagas;
+DROP POLICY IF EXISTS "Public Insert Talentos" ON public.talentos;
+DROP POLICY IF EXISTS "Public Insert Negocios" ON public.negocios;
+
+-- Políticas de Leitura (Geral)
+CREATE POLICY "Public Read Vagas" ON public.vagas FOR SELECT USING (status = 'active');
+CREATE POLICY "Public Read Talentos" ON public.talentos FOR SELECT USING (status = 'active');
+CREATE POLICY "Public Read Negocios" ON public.negocios FOR SELECT USING (status = 'active');
+CREATE POLICY "Public Read Noticias" ON public.noticias FOR SELECT USING (status = 'active');
+
+-- Políticas de Inserção (Geral)
+CREATE POLICY "Public Insert Vagas" ON public.vagas FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public Insert Talentos" ON public.talentos FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public Insert Negocios" ON public.negocios FOR INSERT WITH CHECK (true);
+
+-- ==========================================
+-- 6. LIMPEZA (SÓ APAGUE DEPOIS DE CONFERIR TUDO)
+-- ==========================================
+-- DROP TABLE public.jobs;
+-- DROP TABLE public.candidates;

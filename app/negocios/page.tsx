@@ -37,6 +37,7 @@ interface Negocio {
   location: string;
   area: string;
   description: string;
+  link?: string;
   contact_email: string;
   contact_phone: string;
   type: string;
@@ -144,6 +145,16 @@ function NegociosContent() {
               <button className="bg-[#00628c] hover:bg-[#004c6d] text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-[#00628c]/20">
                 Buscar
               </button>
+            </div>
+
+            <div className="mt-8 flex items-center gap-4">
+              <p className="text-sm font-bold text-[#6f7881]">Tem uma oportunidade?</p>
+              <Link 
+                href="/negocios/cadastrar" 
+                className="inline-flex items-center gap-2 bg-[#fc820c] text-white px-6 py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:scale-105 transition-transform shadow-lg shadow-[#fc820c]/20"
+              >
+                Publicar seu Negócio
+              </Link>
             </div>
           </div>
           <div className="hidden lg:block relative h-[450px]">
@@ -361,7 +372,22 @@ function NegociosContent() {
                 <div className="space-y-8">
                   <div>
                     <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#00628c] mb-4">Descrição da Oportunidade</h3>
-                    <p className="text-[#3e4850] leading-relaxed whitespace-pre-wrap">{selectedNegocio.description}</p>
+                    <p className="text-[#3e4850] leading-relaxed whitespace-pre-wrap mb-6">{selectedNegocio.description}</p>
+                    
+                    {selectedNegocio.link && (
+                      <div className="pt-4 border-t border-[#bec8d1]/20">
+                        <h4 className="text-xs font-black uppercase tracking-widest text-[#6f7881] mb-2">Link Externo</h4>
+                        <a 
+                          href={selectedNegocio.link.startsWith('http') ? selectedNegocio.link : `https://${selectedNegocio.link}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 text-[#00628c] hover:underline font-bold"
+                        >
+                          <Globe className="w-4 h-4" />
+                          Visitar Site / Perfil
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

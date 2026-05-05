@@ -56,14 +56,6 @@ function VagasContent() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const itemsPerPage = 6;
 
-  useEffect(() => {
-    const search = searchParams.get('search');
-    if (search && search !== searchTerm) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSearchTerm(search);
-    }
-  }, [searchParams, searchTerm]);
-
   const categories = [
     { name: 'Todas', icon: <Briefcase className="w-5 h-5" /> },
     { name: 'Finanças', icon: <CreditCard className="w-5 h-5" /> },
@@ -80,7 +72,7 @@ function VagasContent() {
     async function fetchJobs() {
       setIsLoading(true);
       const { data, error } = await supabase
-        .from('jobs')
+        .from('vagas')
         .select('*')
         .eq('status', 'active')
         .order('created_at', { ascending: false });
@@ -104,23 +96,21 @@ function VagasContent() {
     );
   };
 
-  const filteredJobs = jobs.filter(job => {
-    const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          job.company.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const jobArea = job.area?.trim().toLowerCase() || '';
-    const selectedCat = selectedCategory.trim().toLowerCase();
-    const matchesCategory = selectedCategory === 'Todas' || jobArea === selectedCat;
+  const filteredJobs = React.useMemo(() => {
+    return jobs.filter(job => {
+      const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            job.company.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const jobArea = job.area?.trim().toLowerCase() || '';
+      const selectedCat = selectedCategory.trim().toLowerCase();
+      const matchesCategory = selectedCategory === 'Todas' || jobArea === selectedCat;
 
-    const matchesType = selectedTypes.length === 0 || selectedTypes.some(t => job.type.includes(t));
-    
-    // Level matching: level is not explicitly in the schema yet, but we'll prepare for it or map it if it exists in description/requirements
-    // For now, if no job.level, we'll just allow it unless level is set and we want to try matching it.
-    // Let's assume for this demo we'll just filter by type and category effectively first.
-    const matchesLevel = !selectedLevel || true; // Placeholder for future level field
+      const matchesType = selectedTypes.length === 0 || selectedTypes.some(t => job.type.includes(t));
+      const matchesLevel = !selectedLevel || true; // Placeholder
 
-    return matchesSearch && matchesCategory && matchesType && matchesLevel;
-  });
+      return matchesSearch && matchesCategory && matchesType && matchesLevel;
+    });
+  }, [jobs, searchTerm, selectedCategory, selectedTypes, selectedLevel]);
 
   const totalPages = Math.ceil(filteredJobs.length / itemsPerPage);
   const paginatedJobs = filteredJobs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -145,7 +135,10 @@ function VagasContent() {
             <p className="text-[#3e4850] text-lg mb-8 max-w-xl">
               Conectamos talentos dedicados a causas que transformam vidas. Busque por vagas que ressoam com seu propósito.
             </p>
-            <div className="relative max-w-2xl bg-white p-2 rounded-2xl shadow-xl border border-[#bec8d1]/10 flex items-center gap-2">
+            <form 
+              onSubmit={(e) => e.preventDefault()}
+              className="relative max-w-2xl bg-white p-2 rounded-2xl shadow-xl border border-[#bec8d1]/10 flex items-center gap-2"
+            >
               <Search className="ml-4 text-[#6f7881] w-5 h-5" />
               <input 
                 type="text" 
@@ -154,11 +147,21 @@ function VagasContent() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
-              <button className="bg-[#00628c] hover:bg-[#004c6d] text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-[#00628c]/20">
-                Buscar
-              </button>
-            </div>
-          </div>
+                  <button type="submit" className="bg-[#00628c] hover:bg-[#004c6d] text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-[#00628c]/20">
+                    Buscar
+                  </button>
+                </form>
+                
+                <div className="mt-8 flex items-center gap-4">
+                  <p className="text-sm font-bold text-[#6f7881]">Quer contratar?</p>
+                  <Link 
+                    href="/vagas/cadastrar" 
+                    className="inline-flex items-center gap-2 bg-[#bff444] text-[#141f00] px-6 py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:scale-105 transition-transform shadow-lg shadow-[#bff444]/20"
+                  >
+                    Anunciar uma Vaga
+                  </Link>
+                </div>
+              </div>
           <div className="hidden lg:block relative h-[450px]">
             <div className="absolute inset-0 bg-[#964900]/10 rounded-[3rem] transform rotate-3"></div>
             <div className="absolute inset-0 rounded-[3rem] overflow-hidden shadow-2xl -rotate-2 border-8 border-white">
@@ -308,7 +311,12 @@ function VagasContent() {
                     : 'Ainda não há vagas aprovadas disponíveis. Use o Painel Adm para aprovar vagas pendentes.'}
                 </p>
                 <button 
-                  onClick={() => setSearchTerm('')}
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSelectedCategory('Todas');
+                    setSelectedTypes([]);
+                    setSelectedLevel(null);
+                  }}
                   className="mt-6 px-8 py-3 bg-[#00628c] text-white font-bold rounded-xl active:scale-95 transition-all shadow-lg shadow-[#00628c]/20"
                 >
                   Ver todas as vagas
@@ -439,14 +447,10 @@ function VagasContent() {
                 </div>
               </div>
 
-              <div className="p-6 md:p-8 bg-[#f6f3f2] border-t border-[#bec8d1]/10 flex flex-col sm:flex-row gap-4 items-center justify-between">
-                <p className="text-xs text-[#6f7881] font-medium italic">Vaga anunciada através do Corrente do Bem</p>
-                <button 
-                  className="w-full sm:w-auto px-10 py-4 bg-[#00628c] text-white font-black uppercase tracking-widest rounded-2xl hover:bg-[#004c6d] transition-all shadow-lg shadow-[#00628c]/20 text-sm"
-                  onClick={() => alert(`Para se candidatar, entre em contato através dos dados da empresa ou aguarde novas instruções.`)}
-                >
-                  Candidatar-se Agora
-                </button>
+              <div className="p-6 md:p-8 bg-[#f6f3f2] border-t border-[#bec8d1]/10 text-center">
+                <p className="text-sm text-[#6f7881] font-medium italic">
+                  Siga as instruções de candidatura apresentadas na descrição acima.
+                </p>
               </div>
             </motion.div>
           </div>

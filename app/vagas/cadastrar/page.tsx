@@ -78,7 +78,7 @@ export default function CadastrarVagaPage() {
 
     try {
       const { error } = await supabase
-        .from('jobs')
+        .from('vagas')
         .insert([{
           title: formData.title,
           company: formData.company,

@@ -23,7 +23,8 @@ import {
   Bookmark,
   ExternalLink,
   Share2,
-  Verified
+  Verified,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -37,20 +38,22 @@ interface Candidate {
   name: string;
   location: string;
   area: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'active' | 'rejected';
   role: string;
   summary: string;
   skills: string[];
   image: string;
+  cv_url?: string;
   verified?: boolean;
   created_at?: string;
 }
 
 export default function TalentosPage() {
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('Todos os Talentos');
+  const [searchTerm, setSearchTerm] = useState(searchParams?.get('search') || '');
+  const [selectedCategory, setSelectedCategory] = useState(searchParams?.get('category') || 'Todos os Talentos');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
@@ -67,9 +70,9 @@ export default function TalentosPage() {
     async function fetchCandidates() {
       setIsLoading(true);
       const { data, error } = await supabase
-        .from('candidates')
+        .from('talentos')
         .select('*')
-        .eq('status', 'approved')
+        .eq('status', 'active')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -85,13 +88,15 @@ export default function TalentosPage() {
     fetchCandidates();
   }, []);
 
-  const filteredCandidates = candidates.filter(cand => {
-    const matchesSearch = cand.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          cand.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          cand.skills.some(s => s.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesCategory = selectedCategory === 'Todos os Talentos' || cand.area === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredCandidates = React.useMemo(() => {
+    return candidates.filter(cand => {
+      const matchesSearch = cand.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            cand.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            cand.skills.some(s => s.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesCategory = selectedCategory === 'Todos os Talentos' || cand.area === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [candidates, searchTerm, selectedCategory]);
 
   const totalPages = Math.ceil(filteredCandidates.length / itemsPerPage);
   const paginatedCandidates = filteredCandidates.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -110,10 +115,17 @@ export default function TalentosPage() {
         <section className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-8">
           <div className="max-w-2xl">
             <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-[#00628c] mb-4 font-headline leading-tight">Galeria de Talentos</h1>
-            <p className="text-[#3e4850] text-lg leading-relaxed">Conecte-se com profissionais excepcionais prontos para transformar sua empresa com dignidade e competência.</p>
+            <p className="text-[#3e4850] text-lg leading-relaxed mb-6">Conecte-se com profissionais excepcionais prontos para transformar sua empresa com dignidade e competência.</p>
+            <Link 
+              href="/talentos/cadastrar" 
+              className="inline-flex items-center gap-2 bg-[#964900] text-white px-8 py-4 rounded-2xl font-black uppercase text-sm tracking-widest hover:scale-105 transition-transform shadow-xl shadow-[#964900]/20"
+            >
+              <FileText className="w-5 h-5" />
+              Cadastrar Meu Currículo
+            </Link>
           </div>
           <div className="w-full md:w-96">
-            <div className="relative">
+            <form onSubmit={(e) => e.preventDefault()} className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6f7881] w-5 h-5" />
               <input 
                 type="text" 
@@ -122,7 +134,7 @@ export default function TalentosPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
-            </div>
+            </form>
           </div>
         </section>
 
@@ -181,24 +193,7 @@ export default function TalentosPage() {
               </select>
             </div>
 
-            <div className="pt-6">
-              <div className="relative aspect-square rounded-3xl overflow-hidden shadow-xl mb-4 group">
-                <Image 
-                  src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=600" 
-                  alt="Destaque do Mês" 
-                  fill 
-                  className="object-cover transition-transform duration-500 group-hover:scale-110"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-6">
-                  <p className="text-white font-bold text-sm">Destaque do Mês</p>
-                </div>
-              </div>
-              <div className="p-6 rounded-3xl bg-[#fc820c]/10 border-l-4 border-[#fc820c]">
-                <p className="text-[#964900] font-black text-[10px] uppercase tracking-widest mb-2">História de Sucesso</p>
-                <p className="text-[#3e4850] text-sm italic leading-relaxed">&quot;Encontrei minha oportunidade ideal através da Corrente do Bem em menos de 2 semanas.&quot;</p>
-              </div>
-            </div>
+
           </aside>
 
           {/* Talent Grid */}
@@ -271,7 +266,10 @@ export default function TalentosPage() {
                 </p>
                 {searchTerm && (
                   <button 
-                    onClick={() => setSearchTerm('')}
+                    onClick={() => {
+                      setSearchTerm('');
+                      setSelectedCategory('Todos os Talentos');
+                    }}
                     className="mt-6 px-8 py-3 bg-[#00628c] text-white font-bold rounded-xl active:scale-95 transition-all shadow-lg shadow-[#00628c]/20"
                   >
                     Ver todos os talentos

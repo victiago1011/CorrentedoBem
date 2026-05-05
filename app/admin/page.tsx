@@ -44,7 +44,21 @@ import Link from 'next/link';
 
 // --- Types ---
 
-type View = 'vagas' | 'curriculos' | 'negocios' | 'historico' | 'configuracoes' | 'galeria' | 'galeria_vagas' | 'galeria_negocios' | 'recusados';
+type View = 'noticias' | 'vagas' | 'curriculos' | 'negocios' | 'historico' | 'configuracoes' | 'galeria' | 'galeria_vagas' | 'galeria_negocios' | 'recusados';
+
+interface Noticia {
+  id: string;
+  title: string;
+  slug: string;
+  content: string;
+  excerpt?: string;
+  image_url?: string;
+  author?: string;
+  category?: string;
+  status: 'pending' | 'active' | 'archived';
+  published_at?: string;
+  created_at?: string;
+}
 
 interface Job {
   id: string;
@@ -52,6 +66,8 @@ interface Job {
   company: string;
   email?: string;
   phone?: string;
+  site_url?: string;
+  attachment_url?: string;
   location: string;
   type: string;
   area: string;
@@ -74,12 +90,12 @@ interface Candidate {
   area: string;
   date?: string;
   time?: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'active' | 'rejected';
   role: string;
   summary: string;
   skills: string[];
   image: string;
-  resume_url?: string;
+  cv_url?: string;
   verified?: boolean;
   created_at?: string;
 }
@@ -248,6 +264,7 @@ const Sidebar = ({ activeView, setView, isOpen, onClose }: { activeView: View, s
       <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
         {[
           { id: 'vagas', label: 'Vagas Pendentes', icon: <Clock className="w-5 h-5" /> },
+          { id: 'noticias', label: 'Notícias', icon: <Megaphone className="w-5 h-5" /> },
           { id: 'curriculos', label: 'Currículos Pendentes', icon: <FileText className="w-5 h-5" /> },
           { id: 'negocios', label: 'Negócios Pendentes', icon: <TrendingUp className="w-5 h-5" /> },
           { id: 'galeria_vagas', label: 'Galeria de Vagas', icon: <Briefcase className="w-5 h-5" /> },
@@ -325,17 +342,21 @@ export default function Dashboard() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [negocios, setNegocios] = useState<Negocio[]>([]);
+  const [noticias, setNoticias] = useState<Noticia[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [selectedNegocio, setSelectedNegocio] = useState<Negocio | null>(null);
+  const [selectedNoticia, setSelectedNoticia] = useState<Noticia | null>(null);
   const [isAddingJob, setIsAddingJob] = useState(false);
   const [isAddingNegocio, setIsAddingNegocio] = useState(false);
+  const [isAddingNoticia, setIsAddingNoticia] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
   const [editingNegocio, setEditingNegocio] = useState<Negocio | null>(null);
+  const [editingNoticia, setEditingNoticia] = useState<Noticia | null>(null);
   
   const [talentSearch, setTalentSearch] = useState('');
   const [talentCategory, setTalentCategory] = useState('Todos os Talentos');
@@ -359,7 +380,7 @@ export default function Dashboard() {
 
   const [confirmAction, setConfirmAction] = useState<{
     type: 'approve' | 'reject' | 'delete' | 'edit';
-    target: 'job' | 'candidate' | 'negocio';
+    target: 'job' | 'candidate' | 'negocio' | 'noticia';
     id: string;
     payload?: any;
   } | null>(null);
@@ -368,10 +389,11 @@ export default function Dashboard() {
   const fetchData = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const [jobsRes, candidatesRes, negociosRes, historyRes, settingsRes] = await Promise.all([
-        supabase.from('jobs').select('*').order('created_at', { ascending: false }),
-        supabase.from('candidates').select('*').order('created_at', { ascending: false }),
+      const [jobsRes, candidatesRes, negociosRes, noticiasRes, historyRes, settingsRes] = await Promise.all([
+        supabase.from('vagas').select('*').order('created_at', { ascending: false }),
+        supabase.from('talentos').select('*').order('created_at', { ascending: false }),
         supabase.from('negocios').select('*').order('created_at', { ascending: false }),
+        supabase.from('noticias').select('*').order('created_at', { ascending: false }),
         supabase.from('history').select('*').order('created_at', { ascending: false }),
         supabase.from('settings').select('*').maybeSingle()
       ]);
@@ -379,6 +401,7 @@ export default function Dashboard() {
       if (jobsRes.data) setJobs(jobsRes.data);
       if (candidatesRes.data) setCandidates(candidatesRes.data);
       if (negociosRes.data) setNegocios(negociosRes.data);
+      if (noticiasRes.data) setNoticias(noticiasRes.data);
       if (historyRes.data) setHistory(historyRes.data);
       if (settingsRes.data) setSettings(settingsRes.data);
     } catch (error) {
@@ -398,7 +421,7 @@ export default function Dashboard() {
     if (!job) return;
 
     const { error } = await supabase
-      .from('jobs')
+      .from('vagas')
       .update({ status: 'active' })
       .eq('id', id);
 
@@ -423,7 +446,7 @@ export default function Dashboard() {
     if (!job) return;
 
     const { error } = await supabase
-      .from('jobs')
+      .from('vagas')
       .update({ status: 'rejected' })
       .eq('id', id);
 
@@ -448,7 +471,7 @@ export default function Dashboard() {
     if (!job) return;
 
     const { error } = await supabase
-      .from('jobs')
+      .from('vagas')
       .delete()
       .eq('id', id);
 
@@ -470,12 +493,12 @@ export default function Dashboard() {
     if (!cand) return;
 
     const { error } = await supabase
-      .from('candidates')
-      .update({ status: 'approved' })
+      .from('talentos')
+      .update({ status: 'active' })
       .eq('id', id);
 
     if (!error) {
-      setCandidates(prev => prev.map(c => c.id === id ? { ...c, status: 'approved' } : c));
+      setCandidates(prev => prev.map(c => c.id === id ? { ...c, status: 'active' } : c));
       
       const historyEntry = {
         action: 'Currículo Aprovado',
@@ -495,7 +518,7 @@ export default function Dashboard() {
     if (!cand) return;
 
     const { error } = await supabase
-      .from('candidates')
+      .from('talentos')
       .update({ status: 'rejected' })
       .eq('id', id);
 
@@ -529,7 +552,7 @@ export default function Dashboard() {
     };
 
     const { data, error } = await supabase
-      .from('jobs')
+      .from('vagas')
       .insert(jobData)
       .select()
       .single();
@@ -549,7 +572,7 @@ export default function Dashboard() {
 
   const updateJob = React.useCallback(async (updatedJob: Job) => {
     const { data, error } = await supabase
-      .from('jobs')
+      .from('vagas')
       .update({
         title: updatedJob.title,
         company: updatedJob.company,
@@ -583,7 +606,7 @@ export default function Dashboard() {
     if (!cand) return;
 
     const { error } = await supabase
-      .from('candidates')
+      .from('talentos')
       .delete()
       .eq('id', id);
 
@@ -602,7 +625,7 @@ export default function Dashboard() {
 
   const updateCandidate = React.useCallback(async (updatedCand: Candidate) => {
     const { data, error } = await supabase
-      .from('candidates')
+      .from('talentos')
       .update({
         name: updatedCand.name,
         location: updatedCand.location,
@@ -676,6 +699,84 @@ export default function Dashboard() {
       setConfirmAction(null);
     }
   }, [negocios]);
+
+  const approveNoticia = React.useCallback(async (id: string) => {
+    const noticia = noticias.find(n => n.id === id);
+    if (!noticia) return;
+    const { error } = await supabase.from('noticias').update({ status: 'active', published_at: new Date().toISOString() }).eq('id', id);
+    if (!error) {
+      setNoticias(prev => prev.map(n => n.id === id ? { ...n, status: 'active' } : n));
+      const { data: hData } = await supabase.from('history').insert({
+        action: 'Notícia Aprovada',
+        details: `Notícia "${noticia.title}" foi publicada.`
+      }).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+      setSelectedNoticia(null);
+      setConfirmAction(null);
+    }
+  }, [noticias]);
+
+  const addNoticia = React.useCallback(async (newNoticia: Partial<Noticia>) => {
+    const slug = (newNoticia.title || '').toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
+    const noticiaData = {
+      title: newNoticia.title || 'Nova Notícia',
+      slug: `${slug}-${Date.now()}`,
+      content: newNoticia.content || '',
+      excerpt: newNoticia.excerpt || '',
+      image_url: newNoticia.image_url || '',
+      author: newNoticia.author || 'Administrador',
+      category: newNoticia.category || 'Geral',
+      status: 'active',
+      published_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase.from('noticias').insert(noticiaData).select().single();
+    if (data && !error) {
+      setNoticias(prev => [data, ...prev]);
+      setIsAddingNoticia(false);
+      const { data: hData } = await supabase.from('history').insert({
+        action: 'Notícia Criada',
+        details: `Notícia "${data.title}" foi postada.`
+      }).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+    }
+  }, []);
+
+  const updateNoticia = React.useCallback(async (updatedNoticia: Noticia) => {
+    const { data, error } = await supabase.from('noticias').update({
+      title: updatedNoticia.title,
+      content: updatedNoticia.content,
+      excerpt: updatedNoticia.excerpt,
+      image_url: updatedNoticia.image_url,
+      author: updatedNoticia.author,
+      category: updatedNoticia.category
+    }).eq('id', updatedNoticia.id).select().single();
+
+    if (data && !error) {
+      setNoticias(prev => prev.map(n => n.id === data.id ? data : n));
+      setEditingNoticia(null);
+      const { data: hData } = await supabase.from('history').insert({
+        action: 'Notícia Editada',
+        details: `Notícia "${data.title}" foi atualizada.`
+      }).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+    }
+  }, []);
+
+  const deleteNoticia = React.useCallback(async (id: string) => {
+    const noticia = noticias.find(n => n.id === id);
+    if (!noticia) return;
+    const { error } = await supabase.from('noticias').delete().eq('id', id);
+    if (!error) {
+      setNoticias(prev => prev.filter(n => n.id !== id));
+      const { data: hData } = await supabase.from('history').insert({
+        action: 'Notícia Removida',
+        details: `Notícia "${noticia.title}" foi excluída.`
+      }).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+      setConfirmAction(null);
+    }
+  }, [noticias]);
 
   const handleSaveSettings = React.useCallback(async (formData: FormData) => {
     const newSettings = {
@@ -808,6 +909,92 @@ export default function Dashboard() {
                         <tr>
                           <td colSpan={4} className="px-6 py-10 text-center text-on-surface-variant">
                             Nenhuma vaga pendente no momento.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+
+            {activeView === 'noticias' && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-8"
+              >
+                <header className="flex justify-between items-end">
+                  <div>
+                    <h1 className="text-3xl font-extrabold text-primary tracking-tight font-headline">Gerenciar Notícias</h1>
+                    <p className="text-on-surface-variant mt-1">Crie e edite as últimas novidades da comunidade.</p>
+                  </div>
+                  <button 
+                    onClick={() => setIsAddingNoticia(true)}
+                    className="px-6 py-3 bg-primary text-on-primary font-bold rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all flex items-center gap-2"
+                  >
+                    <Megaphone className="w-5 h-5" />
+                    Nova Notícia
+                  </button>
+                </header>
+
+                <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-outline-variant/10 overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[600px]">
+                    <thead className="bg-surface-container-low border-b border-outline-variant/10">
+                      <tr>
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Notícia</th>
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Categoria</th>
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Autor</th>
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Data</th>
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-outline-variant/10">
+                      {noticias.map((n) => (
+                        <tr key={n.id} className="hover:bg-primary/5 transition-all group border-l-4 border-transparent">
+                          <td className="px-6 py-5">
+                            <div className="flex items-center gap-3">
+                              {n.image_url && (
+                                <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0">
+                                  <Image src={n.image_url} alt={n.title} fill className="object-cover" />
+                                </div>
+                              )}
+                              <p className="font-bold text-on-surface line-clamp-1">{n.title}</p>
+                            </div>
+                          </td>
+                          <td className="px-6 py-5">
+                            <span className="px-3 py-1 bg-surface-container-high text-on-surface text-xs font-bold rounded-full">
+                              {n.category}
+                            </span>
+                          </td>
+                          <td className="px-6 py-5 text-sm text-on-surface-variant">
+                            {n.author}
+                          </td>
+                          <td className="px-6 py-5 text-sm text-on-surface-variant">
+                            {n.published_at ? new Date(n.published_at).toLocaleDateString('pt-BR') : 'Não publicada'}
+                          </td>
+                          <td className="px-6 py-5 text-right">
+                            <div className="flex justify-end gap-2">
+                              <button 
+                                onClick={() => setEditingNoticia(n)}
+                                className="p-2 text-on-surface-variant hover:text-primary transition-colors"
+                              >
+                                <Edit className="w-5 h-5" />
+                              </button>
+                              <button 
+                                onClick={() => setConfirmAction({ type: 'delete', target: 'noticia' as any, id: n.id })}
+                                className="p-2 text-on-surface-variant hover:text-secondary transition-colors"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {noticias.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-10 text-center text-on-surface-variant">
+                            Nenhuma notícia cadastrada.
                           </td>
                         </tr>
                       )}
@@ -1402,7 +1589,7 @@ export default function Dashboard() {
 
                   <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                     {candidates
-                      .filter(c => c.status === 'approved')
+                      .filter(c => c.status === 'active')
                       .filter(c => talentCategory === 'Todos os Talentos' || c.area.includes(talentCategory) || (talentCategory === 'Tecnologia' && c.area.includes('Desenvolvimento')))
                       .filter(c => c.name.toLowerCase().includes(talentSearch.toLowerCase()) || c.skills.some(s => s.toLowerCase().includes(talentSearch.toLowerCase())))
                       .map((cand) => (
@@ -1450,7 +1637,7 @@ export default function Dashboard() {
                         </div>
                       </div>
                     ))}
-                    {candidates.filter(c => c.status === 'approved').length === 0 && (
+                    {candidates.filter(c => c.status === 'active').length === 0 && (
                       <div className="col-span-2 p-12 text-center text-on-surface-variant">
                         Nenhum talento aprovado na galeria ainda.
                       </div>
@@ -1788,9 +1975,9 @@ export default function Dashboard() {
                              {selectedCandidate.phone}
                           </div>
                        )}
-                       {selectedCandidate.resume_url && (
+                       {selectedCandidate.cv_url && (
                           <a 
-                            href={selectedCandidate.resume_url} 
+                            href={selectedCandidate.cv_url} 
                             target="_blank" 
                             rel="noopener noreferrer"
                             className="flex items-center gap-2 p-3 bg-primary/5 text-primary text-sm font-bold rounded-xl border border-primary/10 hover:bg-primary/10 transition-colors mt-4"
@@ -2090,6 +2277,127 @@ export default function Dashboard() {
         </div>
       )}
 
+        {isAddingNoticia && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white rounded-3xl p-6 lg:p-8 max-w-2xl w-full shadow-2xl border border-outline-variant/10 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl lg:text-2xl font-bold text-primary font-headline">Postar Nova Notícia</h2>
+                <button onClick={() => setIsAddingNoticia(false)} className="p-2 hover:bg-surface-container rounded-full transition-colors">
+                  <XCircle className="w-6 h-6 text-on-surface-variant" />
+                </button>
+              </div>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                addNoticia({
+                  title: formData.get('title') as string,
+                  content: formData.get('content') as string,
+                  excerpt: formData.get('excerpt') as string,
+                  image_url: formData.get('image_url') as string,
+                  category: formData.get('category') as string,
+                  author: formData.get('author') as string,
+                });
+              }} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Título da Notícia</label>
+                  <input name="title" required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Ex: Grande evento comunitário" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase">Categoria</label>
+                    <input name="category" className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Ex: Eventos" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase">Autor</label>
+                    <input name="author" className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Nome do autor" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">URL da Imagem</label>
+                  <input name="image_url" className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="https://exemplo.com/imagem.jpg" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Resumo / Excerpt</label>
+                  <textarea name="excerpt" rows={2} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Breve resumo da notícia..."></textarea>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Conteúdo Principal</label>
+                  <textarea name="content" required rows={6} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Escreva o artigo completo..."></textarea>
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button type="button" onClick={() => setIsAddingNoticia(false)} className="flex-1 py-3 px-4 bg-surface-container-highest text-on-surface rounded-xl font-bold hover:bg-surface-container transition-all">Cancelar</button>
+                  <button type="submit" className="flex-1 py-3 px-4 bg-primary text-on-primary rounded-xl font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">Publicar Notícia</button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
+        {editingNoticia && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white rounded-3xl p-6 lg:p-8 max-w-2xl w-full shadow-2xl border border-outline-variant/10 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl lg:text-2xl font-bold text-primary font-headline">Editar Notícia</h2>
+                <button onClick={() => setEditingNoticia(null)} className="p-2 hover:bg-surface-container rounded-full transition-colors">
+                  <XCircle className="w-6 h-6 text-on-surface-variant" />
+                </button>
+              </div>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                updateNoticia({
+                  ...editingNoticia,
+                  title: formData.get('title') as string,
+                  content: formData.get('content') as string,
+                  excerpt: formData.get('excerpt') as string,
+                  image_url: formData.get('image_url') as string,
+                  category: formData.get('category') as string,
+                  author: formData.get('author') as string,
+                });
+              }} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Título da Notícia</label>
+                  <input name="title" defaultValue={editingNoticia.title} required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase">Categoria</label>
+                    <input name="category" defaultValue={editingNoticia.category} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase">Autor</label>
+                    <input name="author" defaultValue={editingNoticia.author} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">URL da Imagem</label>
+                  <input name="image_url" defaultValue={editingNoticia.image_url} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Resumo / Excerpt</label>
+                  <textarea name="excerpt" defaultValue={editingNoticia.excerpt} rows={2} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none"></textarea>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Conteúdo Principal</label>
+                  <textarea name="content" defaultValue={editingNoticia.content} required rows={6} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none"></textarea>
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button type="button" onClick={() => setEditingNoticia(null)} className="flex-1 py-3 px-4 bg-surface-container-highest text-on-surface rounded-xl font-bold hover:bg-surface-container transition-all">Cancelar</button>
+                  <button type="submit" className="flex-1 py-3 px-4 bg-primary text-on-primary rounded-xl font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">Atualizar Notícia</button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
       {confirmAction && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
           <motion.div 
@@ -2117,7 +2425,7 @@ export default function Dashboard() {
                 confirmAction.type === 'approve' ? 'aprovar' : 
                 confirmAction.type === 'reject' ? 'recusar' :
                 confirmAction.type === 'delete' ? 'excluir permanentemente' : 'salvar as alterações deste'
-              } {confirmAction.target === 'job' ? 'vaga' : confirmAction.target === 'candidate' ? 'candidato' : 'negócio'}? 
+              } {confirmAction.target === 'job' ? 'vaga' : confirmAction.target === 'candidate' ? 'candidato' : confirmAction.target === 'noticia' ? 'notícia' : 'negócio'}? 
               Esta ação será registrada no histórico do sistema.
             </p>
             <div className="grid grid-cols-2 gap-4">
@@ -2143,6 +2451,8 @@ export default function Dashboard() {
                     if (confirmAction.type === 'approve') approveNegocio(confirmAction.id);
                     else if (confirmAction.type === 'reject') rejectNegocio(confirmAction.id);
                     else if (confirmAction.type === 'delete') deleteNegocio(confirmAction.id);
+                  } else if (confirmAction.target === 'noticia') {
+                    if (confirmAction.type === 'delete') deleteNoticia(confirmAction.id);
                   }
                 }}
                 className={cn(
