@@ -7,11 +7,13 @@ import {
   ChevronDown, 
   Menu, 
   X,
+  Mail,
   Briefcase,
   FileText,
   TrendingUp,
   Newspaper,
-  Info
+  Info,
+  ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -27,7 +29,16 @@ export function Navbar() {
     { name: 'Currículos', href: '/talentos', icon: <FileText className="w-4 h-4" /> },
     { name: 'Negócios', href: '/negocios', icon: <TrendingUp className="w-4 h-4" /> },
     { name: 'Notícias', href: '/noticias', icon: <Newspaper className="w-4 h-4" /> },
-    { name: 'Como Funciona', href: '/#como-funciona', icon: <Info className="w-4 h-4" /> },
+    { 
+      name: 'Sobre Nós', 
+      href: '#', 
+      icon: <Info className="w-4 h-4" />,
+      subItems: [
+        { name: 'Quem Somos', href: '/#sobre-nos', icon: <Handshake className="w-4 h-4" /> },
+        { name: 'Como Funciona', href: '/#como-funciona', icon: <Info className="w-4 h-4" /> },
+        { name: 'Entre em Contato', href: '/contato', icon: <Mail className="w-4 h-4" /> }
+      ]
+    },
   ];
 
   const registerOptions = [
@@ -68,16 +79,35 @@ export function Navbar() {
           {/* Desktop Nav */}
           <div className="hidden lg:flex items-center gap-6">
             {navLinks.map((link) => (
-              <Link 
-                key={link.name} 
-                href={link.href}
-                className={cn(
-                  "text-sm font-bold transition-colors py-2",
-                  pathname === link.href ? "text-[#00628c]" : "text-[#3e4850] hover:text-[#00628c]"
+              <div key={link.name} className="relative group">
+                <Link 
+                  href={link.href}
+                  className={cn(
+                    "text-sm font-bold transition-colors py-2 flex items-center gap-1",
+                    pathname === link.href ? "text-[#00628c]" : "text-[#3e4850] hover:text-[#00628c]"
+                  )}
+                >
+                  {link.name}
+                  {link.subItems && <ChevronDown className="w-4 h-4 transition-transform group-hover:rotate-180" />}
+                </Link>
+                
+                {link.subItems && (
+                  <div className="absolute top-full left-0 pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                    <div className="bg-white rounded-2xl shadow-xl border border-[#bec8d1]/10 p-2 min-w-[200px]">
+                      {link.subItems.map((sub) => (
+                        <Link 
+                          key={sub.name}
+                          href={sub.href}
+                          className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-[#3e4850] hover:text-[#00628c] hover:bg-[#f6f3f2] rounded-xl transition-all"
+                        >
+                          <span className="text-[#6f7881]">{sub.icon}</span>
+                          {sub.name}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
                 )}
-              >
-                {link.name}
-              </Link>
+              </div>
             ))}
           </div>
 
@@ -107,17 +137,35 @@ export function Navbar() {
           >
             <div className="flex flex-col p-6 space-y-4">
               {navLinks.map((link) => (
-                <Link 
-                  key={link.name}
-                  onClick={() => setIsMenuOpen(false)} 
-                  href={link.href} 
-                  className={cn("flex items-center gap-3 font-bold py-2", pathname === link.href ? "text-[#00628c]" : "text-[#3e4850]")}
-                >
-                  <span className={pathname === link.href ? "text-[#00628c]" : "text-[#6f7881]"}>
-                    {link.icon}
-                  </span>
-                  {link.name}
-                </Link>
+                <div key={link.name} className="space-y-2">
+                  <Link 
+                    onClick={() => !link.subItems && setIsMenuOpen(false)} 
+                    href={link.href} 
+                    className={cn("flex items-center justify-between gap-3 font-bold py-2", pathname === link.href ? "text-[#00628c]" : "text-[#3e4850]")}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className={pathname === link.href ? "text-[#00628c]" : "text-[#6f7881]"}>
+                        {link.icon}
+                      </span>
+                      {link.name}
+                    </div>
+                  </Link>
+                  
+                  {link.subItems && (
+                    <div className="pl-10 space-y-3 py-2">
+                      {link.subItems.map((sub) => (
+                        <Link 
+                          key={sub.name}
+                          onClick={() => setIsMenuOpen(false)}
+                          href={sub.href}
+                          className="flex items-center gap-3 text-sm font-bold text-[#6f7881] hover:text-[#00628c]"
+                        >
+                          {sub.name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
               <div className="pt-4 border-t border-[#bec8d1]/10">
                 <button 

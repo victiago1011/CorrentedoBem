@@ -21,6 +21,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
+import { maskPhone, maskCurrency } from '@/lib/utils';
 
 export default function CadastrarVagaPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -209,7 +210,7 @@ export default function CadastrarVagaPage() {
                     placeholder="(00) 00000-0000" 
                     className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all"
                     value={formData.phone}
-                    onChange={e => setFormData({...formData, phone: e.target.value})}
+                    onChange={e => setFormData({...formData, phone: maskPhone(e.target.value)})}
                   />
                 </div>
               </div>
@@ -219,9 +220,9 @@ export default function CadastrarVagaPage() {
                 <div className="relative">
                   <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
                   <input 
-                    type="url" 
+                    type="text" 
                     placeholder="https://empresa.com/vaga" 
-                    className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all"
+                    className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all font-bold text-[#1b1c1c]"
                     value={formData.site_url}
                     onChange={e => setFormData({...formData, site_url: e.target.value})}
                   />
@@ -249,9 +250,9 @@ export default function CadastrarVagaPage() {
                   <input 
                     type="text" 
                     placeholder="Ex: R$ 2.500,00" 
-                    className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all"
+                    className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all font-bold text-[#1b1c1c]"
                     value={formData.salary}
-                    onChange={e => setFormData({...formData, salary: e.target.value})}
+                    onChange={e => setFormData({...formData, salary: maskCurrency(e.target.value)})}
                   />
                 </div>
               </div>

@@ -19,7 +19,9 @@ import {
   Menu,
   X,
   Briefcase,
-  Clock
+  Clock,
+  Check,
+  User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Image from 'next/image';
@@ -27,6 +29,33 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { Navbar } from '@/app/components/Navbar';
+
+// Helper component for candidate images with error fallback
+const CandidateAvatar = ({ src, name, className = "object-cover" }: { src?: string; name: string; className?: string }) => {
+  const [error, setError] = React.useState(false);
+  const isFallback = !src || src.includes('gravatar') || src.includes('dicebear');
+  
+  // If it's a known problematic source or has error, handle according
+  if (error || !src) {
+    return (
+      <div className="w-full h-full bg-[#f6f3f2] flex items-center justify-center text-[#bec8d1] border border-[#bec8d1]/20">
+        <User className="w-1/2 h-1/2" />
+      </div>
+    );
+  }
+
+  return (
+    <Image 
+      src={src} 
+      alt={name} 
+      fill 
+      className={className} 
+      referrerPolicy="no-referrer"
+      unoptimized={src.includes('dicebear')} // Dicebear SVGs don't need optimization and often fail in Next.js proxy
+      onError={() => setError(true)}
+    />
+  );
+};
 
 interface Job {
   id: string;
@@ -184,7 +213,7 @@ export default function LandingPage() {
                   </div>
                   <div>
                     <div className="font-bold text-[#1b1c1c]">Impacto Real</div>
-                    <div className="text-sm text-[#3e4850]">+500 contratações este mês</div>
+                    <div className="text-sm text-[#3e4850]">+500 contratações</div>
                   </div>
                 </div>
               </motion.div>
@@ -331,14 +360,10 @@ export default function LandingPage() {
                   </div>
                 </div>
 
-                <div className="p-6 md:p-8 bg-[#f6f3f2] border-t border-[#bec8d1]/10 flex flex-col sm:flex-row gap-4 items-center justify-between">
-                  <p className="text-xs text-[#6f7881] font-medium italic">Vaga anunciada através do Corrente do Bem</p>
-                  <button 
-                    className="w-full sm:w-auto px-10 py-4 bg-[#00628c] text-white font-black uppercase tracking-widest rounded-2xl hover:bg-[#004c6d] transition-all shadow-lg shadow-[#00628c]/20 text-sm"
-                    onClick={() => alert(`Para se candidatar, entre em contato através dos dados da empresa ou aguarde novas instruções.`)}
-                  >
-                    Candidatar-se Agora
-                  </button>
+                <div className="p-6 md:p-8 bg-[#f6f3f2] border-t border-[#bec8d1]/10 text-center">
+                  <p className="text-sm text-[#6f7881] font-medium italic">
+                    Siga as instruções de candidatura apresentadas na descrição acima.
+                  </p>
                 </div>
               </motion.div>
             </div>
@@ -354,41 +379,63 @@ export default function LandingPage() {
               <div className="h-px flex-1 bg-[#bec8d1]/30"></div>
             </div>
             <h2 className="text-3xl lg:text-4xl font-bold text-[#1b1c1c] text-center mb-12 lg:mb-16 tracking-tight font-headline">Talentos que Inspiram</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
               {isLoadingCandidates ? (
                 Array(3).fill(0).map((_, i) => (
-                  <div key={i} className="aspect-[4/5] rounded-[2.5rem] bg-[#f6f3f2] animate-pulse"></div>
+                  <div key={i} className="h-[320px] rounded-[2.5rem] bg-[#f6f3f2] animate-pulse border border-[#bec8d1]/10"></div>
                 ))
               ) : featuredCandidates.length > 0 ? (
                 featuredCandidates.map((cand, idx) => (
                   <motion.div 
                     key={cand.id}
-                    whileHover={{ y: -10 }}
+                    whileHover={{ y: -8, boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)" }}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.1 }}
-                    className={cn(
-                      "relative group h-full",
-                      idx === 1 ? "lg:mt-12" : "",
-                      idx === 2 ? "lg:mt-24" : ""
-                    )}
+                    className="bg-white p-6 lg:p-8 rounded-[2.5rem] shadow-xl shadow-[#00628c]/5 border border-[#bec8d1]/10 flex flex-col h-full relative group"
                   >
-                    <div className="aspect-[4/5] rounded-[2.5rem] overflow-hidden mb-6 shadow-lg relative">
-                      <Image 
-                        alt={cand.name} 
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
-                        src={cand.image || "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&q=80&w=600"} 
-                        fill
-                        referrerPolicy="no-referrer"
-                      />
+                    <div className="flex items-start gap-4 mb-6">
+                      <div className="relative w-16 h-16 lg:w-20 lg:h-20 rounded-2xl overflow-hidden shadow-inner shrink-0 border-2 border-[#bff444] bg-[#f6f3f2]">
+                        <CandidateAvatar 
+                          src={cand.image} 
+                          name={cand.name} 
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        />
+                      </div>
+                      <div className="pt-1">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <h3 className="text-xl font-bold text-[#1b1c1c] font-headline line-clamp-1">{cand.name}</h3>
+                          {cand.verified && <div className="w-4 h-4 bg-[#bff444] rounded-full flex items-center justify-center"><Check className="w-2.5 h-2.5 text-[#141f00]" /></div>}
+                        </div>
+                        <p className="text-[#00628c] font-bold text-sm lg:text-base line-clamp-1">{cand.role}</p>
+                        <p className="text-[#6f7881] text-xs flex items-center gap-1 mt-1">
+                          <MapPin className="w-3 h-3 text-[#00628c]" /> {cand.location}
+                        </p>
+                      </div>
                     </div>
-                    <div className="bg-white/90 backdrop-blur-md absolute bottom-10 left-6 right-6 p-6 rounded-2xl shadow-lg border border-[#bec8d1]/10">
-                      <h3 className="text-xl font-bold text-[#1b1c1c] font-headline">{cand.name}</h3>
-                      <p className="text-[#00628c] font-semibold mb-2 line-clamp-1">{cand.role}</p>
-                      <div className="flex flex-wrap gap-2">
-                        {cand.skills.slice(0, 2).map((skill, index) => (
-                          <span key={index} className="px-2 py-1 bg-[#f0eded] text-[10px] font-bold rounded uppercase">{skill}</span>
-                        ))}
+
+                    <div className="flex-grow mb-6">
+                      <p className="text-[#3e4850] text-sm leading-relaxed line-clamp-5 italic">
+                        &quot;{cand.summary || "Profissional dedicado em busca de novas oportunidades para crescer e contribuir com o mercado de trabalho através de suas competências."}&quot;
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 pt-6 border-t border-[#f6f3f2]">
+                      {cand.skills?.slice(0, 3).map((skill, index) => (
+                        <span key={index} className="px-3 py-1 bg-[#f0eded] text-[#3e4850] text-[10px] font-black rounded-lg uppercase tracking-wider">
+                          {skill}
+                        </span>
+                      ))}
+                      {cand.skills?.length > 3 && (
+                        <span className="px-2 py-1 text-[#6f7881] text-[10px] font-bold">
+                          +{cand.skills.length - 3}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="w-8 h-8 rounded-full bg-[#f6f3f2] flex items-center justify-center text-[#00628c]">
+                        <ArrowRight className="w-4 h-4" />
                       </div>
                     </div>
                   </motion.div>
@@ -404,6 +451,52 @@ export default function LandingPage() {
                 Ver todos os currículos
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Sobre Nós */}
+        <section id="sobre-nos" className="py-16 lg:py-24 bg-[#fcf9f8]">
+          <div className="max-w-7xl mx-auto px-4 md:px-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+              <div className="order-2 lg:order-1 relative">
+                <div className="relative aspect-video lg:aspect-square rounded-[3rem] overflow-hidden shadow-2xl border-8 border-white">
+                  <Image 
+                    alt="Corrente do Bem - Nossa Missão" 
+                    className="w-full h-full object-cover" 
+                    src="https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&q=80&w=1000" 
+                    fill
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-[#bff444] rounded-full flex items-center justify-center shadow-xl rotate-12">
+                  <Handshake className="w-12 h-12 text-[#141f00]" />
+                </div>
+              </div>
+              <div className="order-1 lg:order-2 space-y-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-12 h-px bg-[#00628c]"></div>
+                  <span className="text-[#00628c] font-black uppercase tracking-widest text-xs">Institucional</span>
+                </div>
+                <h2 className="text-3xl lg:text-5xl font-black text-[#00628c] font-headline leading-tight">
+                  NÓS SOMOS A <br />
+                  <span className="text-[#1b1c1c]">CORRENTE DO BEM!</span>
+                </h2>
+                <div className="space-y-4 text-[#3e4850] text-sm lg:text-base leading-relaxed">
+                  <p>
+                    Projeto iniciado por volta de 2005 com o objetivo de ajudar cada amigo na recolocação, utilizando uma rede de pessoas do bem, de forma simples, humilde e desinteressada para ajudar ao próximo.
+                  </p>
+                  <p>
+                    Com o tempo cada amigo ajudado ou não, passou a fazer parte desta corrente do bem, participando através de email, fone, whatsapp, boca a boca, com apenas um objetivo: ajudar ao próximo.
+                  </p>
+                  <p>
+                    A indicação, a referência tornou-se a base desta corrente. A corrente do bem, ao longo do tempo cresceu com a ajuda de cada boa alma tornando-se um elo forte e essencial, unindo as partes fazendo chegar a oportunidade e o Currículo, mudando o destino de milhares de amigos e amigas do bem.
+                  </p>
+                  <p className="font-bold text-[#1b1c1c]">
+                    Hoje fazendo parte desta corrente com elos em praticamente todo o território nacional com mais de 4.000 amigos do bem, crescendo a cada dia, e provando para o mundo que juntos somos mais fortes.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -651,16 +744,16 @@ export default function LandingPage() {
             <div>
               <h4 className="text-xs font-black uppercase tracking-widest text-[#00628c] mb-6 text-left">Empresa</h4>
               <ul className="space-y-4 text-left">
-                <li><Link href="#" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Sobre Nós</Link></li>
-                <li><Link href="#" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Privacidade</Link></li>
-                <li><Link href="#" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Termos de Uso</Link></li>
+                <li><Link href="/#sobre-nos" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Sobre Nós</Link></li>
+                <li><Link href="/privacidade" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Privacidade</Link></li>
+                <li><Link href="/termos" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Termos de Uso</Link></li>
               </ul>
             </div>
             <div>
               <h4 className="text-xs font-black uppercase tracking-widest text-[#00628c] mb-6 text-left">Suporte</h4>
               <ul className="space-y-4 text-left">
-                <li><Link href="#" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Contato</Link></li>
-                <li><Link href="#" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Ajuda</Link></li>
+                <li><Link href="/contato" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Contato</Link></li>
+                <li><Link href="/#como-funciona" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Ajuda</Link></li>
               </ul>
             </div>
           </div>

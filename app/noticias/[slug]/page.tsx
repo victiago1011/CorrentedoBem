@@ -95,6 +95,7 @@ export default function NoticiaDetailPage() {
             className="object-cover opacity-80 transition-transform duration-[10s] hover:scale-110"
             priority
             referrerPolicy="no-referrer"
+            unoptimized
           />
         ) : (
           <div className="absolute inset-0 bg-[#00628c]"></div>
@@ -171,14 +172,17 @@ export default function NoticiaDetailPage() {
                 </div>
               )}
               
-              <div className="prose prose-2xl prose-slate max-w-none text-[#3e4850] leading-[1.8] font-medium 
-                prose-headings:text-[#1a2b3b] prose-headings:font-black prose-headings:tracking-tight 
-                prose-p:mb-8 prose-li:mb-2 prose-a:text-[#00628c] prose-a:font-bold prose-strong:text-[#1a2b3b]
-                selection:bg-[#00628c]/10 prose-img:rounded-[2rem] prose-img:shadow-2xl">
-                <ReactMarkdown>
-                  {noticia.content}
-                </ReactMarkdown>
-              </div>
+              <div 
+                className="prose prose-2xl prose-slate max-w-none text-[#3e4850] leading-[1.8] font-medium prose-headings:text-[#1a2b3b] prose-headings:font-black prose-headings:tracking-tight prose-p:mb-8 prose-li:mb-2 prose-a:text-[#00628c] prose-a:font-bold prose-strong:text-[#1a2b3b] selection:bg-[#00628c]/10 prose-img:rounded-[2rem] prose-img:shadow-2xl news-content"
+                dangerouslySetInnerHTML={{ __html: noticia.content }}
+              />
+
+              <style jsx global>{`
+                .news-content p { margin-bottom: 2rem; }
+                .news-content h1, .news-content h2, .news-content h3 { margin-top: 3rem; margin-bottom: 1.5rem; }
+                .news-content ul, .news-content ol { padding-left: 1.5rem; margin-bottom: 2rem; }
+                .news-content li { margin-bottom: 0.5rem; }
+              `}</style>
 
               <div className="mt-24 pt-12 border-t border-[#F1F5F9] flex flex-wrap items-center justify-between gap-10">
                 <div className="flex items-center gap-6">

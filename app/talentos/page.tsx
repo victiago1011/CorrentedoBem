@@ -24,7 +24,8 @@ import {
   ExternalLink,
   Share2,
   Verified,
-  FileText
+  FileText,
+  User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -32,6 +33,32 @@ import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Navbar } from '@/app/components/Navbar';
+
+// Helper component for candidate images with error fallback
+const CandidateAvatar = ({ src, name, className = "object-cover" }: { src?: string; name: string; className?: string }) => {
+  const [error, setError] = React.useState(false);
+  const isFallback = !src || src.includes('gravatar') || src.includes('dicebear');
+  
+  if (error || !src) {
+    return (
+      <div className="w-full h-full bg-[#f6f3f2] flex items-center justify-center text-[#bec8d1] border border-[#bec8d1]/20">
+        <User className="w-1/2 h-1/2" />
+      </div>
+    );
+  }
+
+  return (
+    <Image 
+      src={src} 
+      alt={name} 
+      fill 
+      className={className} 
+      referrerPolicy="no-referrer"
+      unoptimized={src.includes('dicebear')}
+      onError={() => setError(true)}
+    />
+  );
+};
 
 interface Candidate {
   id: string;
@@ -220,7 +247,11 @@ export default function TalentosPage() {
                       "relative rounded-3xl overflow-hidden shrink-0 shadow-xl",
                       idx === 0 ? "w-32 h-32 md:w-48 md:h-48" : "w-24 h-24"
                     )}>
-                      <Image src={cand.image} alt={cand.name} fill className="object-cover transition-transform duration-500 group-hover:scale-110" referrerPolicy="no-referrer" />
+                      <CandidateAvatar 
+                        src={cand.image} 
+                        name={cand.name} 
+                        className="object-cover transition-transform duration-500 group-hover:scale-110" 
+                      />
                       {cand.verified && (
                         <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[#bff444] flex items-center justify-center border-4 border-white">
                           <Verified className="w-4 h-4 text-[#141f00] fill-current" />

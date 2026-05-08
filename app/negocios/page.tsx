@@ -392,14 +392,28 @@ function NegociosContent() {
                 </div>
               </div>
 
-              <div className="p-6 md:p-8 bg-[#f6f3f2] border-t border-[#bec8d1]/10 flex flex-col sm:flex-row gap-4 items-center justify-between">
-                <p className="text-xs text-[#6f7881] font-medium italic">Oportunidade anunciada através do Corrente do Bem</p>
-                <button 
-                  className="w-full sm:w-auto px-10 py-4 bg-[#00628c] text-white font-black uppercase tracking-widest rounded-2xl hover:bg-[#004c6d] transition-all shadow-lg shadow-[#00628c]/20 text-sm"
-                  onClick={() => alert(`Para saber mais, entre em contato através de: ${selectedNegocio.contact_email || selectedNegocio.contact_phone || 'nosso suporte'}`)}
-                >
-                  Tenho Interesse
-                </button>
+              <div className="p-6 md:p-8 bg-[#f6f3f2] border-t border-[#bec8d1]/10">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                  <p className="text-xs text-[#6f7881] font-medium italic">Oportunidade anunciada através do Corrente do Bem</p>
+                  <div className="flex flex-wrap justify-center gap-4">
+                    {selectedNegocio.contact_email && (
+                      <div className="flex flex-col items-center md:items-end">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-[#6f7881]">E-mail</span>
+                        <a href={`mailto:${selectedNegocio.contact_email}`} className="text-sm font-bold text-[#00628c] hover:underline">
+                          {selectedNegocio.contact_email}
+                        </a>
+                      </div>
+                    )}
+                    {selectedNegocio.contact_phone && (
+                      <div className="flex flex-col items-center md:items-end">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-[#6f7881]">Telefone / WhatsApp</span>
+                        <a href={`https://wa.me/${selectedNegocio.contact_phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-[#00628c] hover:underline">
+                          {selectedNegocio.contact_phone}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </motion.div>
           </div>

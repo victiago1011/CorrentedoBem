@@ -120,6 +120,7 @@ export default function NoticiasPage() {
                       fill 
                       className="object-cover transition-transform duration-1000 group-hover:scale-105"
                       referrerPolicy="no-referrer"
+                      unoptimized
                     />
                     <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent"></div>
                     <div className="absolute top-8 left-8">
@@ -192,6 +193,7 @@ export default function NoticiasPage() {
                         fill 
                         className="object-cover transition-transform duration-700 group-hover:scale-110"
                         referrerPolicy="no-referrer"
+                        unoptimized
                       />
                       <div className="absolute top-6 left-6">
                         <span className="px-4 py-1.5 bg-white/90 backdrop-blur-md text-[#00628c] font-black text-[9px] uppercase tracking-widest rounded-full shadow-lg">

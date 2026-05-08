@@ -24,6 +24,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
+import { maskPhone } from '@/lib/utils';
 
 export default function CadastrarNegocioPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -213,7 +214,7 @@ export default function CadastrarNegocioPage() {
                     placeholder="(00) 00000-0000" 
                     className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all text-[#1b1c1c]"
                     value={formData.contact_phone}
-                    onChange={e => setFormData({...formData, contact_phone: e.target.value})}
+                    onChange={e => setFormData({...formData, contact_phone: maskPhone(e.target.value)})}
                   />
                 </div>
               </div>
@@ -223,9 +224,9 @@ export default function CadastrarNegocioPage() {
                 <div className="relative">
                   <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6f7881]" />
                   <input 
-                    type="url" 
+                    type="text" 
                     placeholder="https://..." 
-                    className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all text-[#1b1c1c]"
+                    className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all text-[#1b1c1c] font-bold"
                     value={formData.link}
                     onChange={e => setFormData({...formData, link: e.target.value})}
                   />

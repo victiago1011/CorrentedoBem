@@ -1,6 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
+const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
+import 'react-quill-new/dist/quill.snow.css';
+
 import { 
   LayoutGrid, 
   FileText, 
@@ -33,21 +37,51 @@ import {
   Edit,
   Trash2,
   Phone,
-  TrendingUp
+  TrendingUp,
+  Upload,
+  Maximize2,
+  Minimize2,
+  User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '@/lib/utils';
+import { cn, maskCurrency } from '@/lib/utils';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 
 import Link from 'next/link';
 
-// --- Types ---
+// Helper component for candidate images with error fallback
+const CandidateAvatar = ({ src, name, className = "object-cover" }: { src?: string; name: string; className?: string }) => {
+  const [error, setError] = React.useState(false);
+  const isGravatar = !src || src.includes('gravatar');
 
-type View = 'noticias' | 'vagas' | 'curriculos' | 'negocios' | 'historico' | 'configuracoes' | 'galeria' | 'galeria_vagas' | 'galeria_negocios' | 'recusados';
+  if (error || isGravatar) {
+    return (
+      <div className="w-full h-full bg-[#f6f3f2] flex items-center justify-center text-[#bec8d1] border border-[#bec8d1]/20">
+        <User className="w-1/2 h-1/2" />
+      </div>
+    );
+  }
+
+  return (
+    <Image 
+      src={src} 
+      alt={name} 
+      fill 
+      className={className} 
+      referrerPolicy="no-referrer"
+      unoptimized={src.includes('dicebear')}
+      onError={() => setError(true)}
+    />
+  );
+};
+
+  // --- Types ---
+
+type View = 'noticias' | 'vagas' | 'curriculos' | 'negocios' | 'historico' | 'configuracoes' | 'galeria' | 'galeria_vagas' | 'galeria_negocios' | 'recusados' | 'contatos';
 
 interface Noticia {
-  id: string;
+  id: string | number;
   title: string;
   slug: string;
   content: string;
@@ -61,7 +95,7 @@ interface Noticia {
 }
 
 interface Job {
-  id: string;
+  id: string | number;
   title: string;
   company: string;
   email?: string;
@@ -82,7 +116,7 @@ interface Job {
 }
 
 interface Candidate {
-  id: string;
+  id: string | number;
   name: string;
   email?: string;
   phone?: string;
@@ -101,7 +135,7 @@ interface Candidate {
 }
 
 interface Negocio {
-  id: string;
+  id: string | number;
   title: string;
   owner_name: string;
   description: string;
@@ -120,6 +154,16 @@ interface HistoryItem {
   id: string;
   action: string;
   details: string;
+  created_at: string;
+}
+
+interface Contato {
+  id: string | number;
+  nome: string;
+  email: string;
+  assunto: string;
+  mensagem: string;
+  lida: boolean;
   created_at: string;
 }
 
@@ -272,6 +316,7 @@ const Sidebar = ({ activeView, setView, isOpen, onClose }: { activeView: View, s
           { id: 'galeria_negocios', label: 'Galeria de Negócios', icon: <Zap className="w-5 h-5" /> },
           { id: 'recusados', label: 'Recusados', icon: <XCircle className="w-5 h-5" /> },
           { id: 'historico', label: 'Histórico', icon: <History className="w-5 h-5" /> },
+          { id: 'contatos', label: 'Mensagens de Contato', icon: <Mail className="w-5 h-5" /> },
           { id: 'configuracoes', label: 'Configurações', icon: <Settings className="w-5 h-5" /> },
         ].map((item) => (
           <button
@@ -344,6 +389,7 @@ export default function Dashboard() {
   const [negocios, setNegocios] = useState<Negocio[]>([]);
   const [noticias, setNoticias] = useState<Noticia[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [contatos, setContatos] = useState<Contato[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
@@ -353,6 +399,9 @@ export default function Dashboard() {
   const [isAddingJob, setIsAddingJob] = useState(false);
   const [isAddingNegocio, setIsAddingNegocio] = useState(false);
   const [isAddingNoticia, setIsAddingNoticia] = useState(false);
+  const [newsContent, setNewsContent] = useState('');
+  const [newsImageUrl, setNewsImageUrl] = useState('');
+  const [isEditorExpanded, setIsEditorExpanded] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
   const [editingNegocio, setEditingNegocio] = useState<Negocio | null>(null);
@@ -364,7 +413,6 @@ export default function Dashboard() {
   const [jobCategory, setJobCategory] = useState('Todas as Vagas');
   const [negocioSearch, setNegocioSearch] = useState('');
   const [negocioCategory, setNegocioCategory] = useState('Todas');
-  const [showToast, setShowToast] = useState<string | null>(null);
   const [settings, setSettings] = useState<{
     id?: number;
     platform_name: string;
@@ -381,21 +429,62 @@ export default function Dashboard() {
   const [confirmAction, setConfirmAction] = useState<{
     type: 'approve' | 'reject' | 'delete' | 'edit';
     target: 'job' | 'candidate' | 'negocio' | 'noticia';
-    id: string;
+    id: string | number;
     payload?: any;
   } | null>(null);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (base64: string) => void) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        triggerToast('Imagem muito grande! Máximo 2MB.', 'error');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        callback(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const quillModules = {
+    toolbar: [
+      [{ 'header': [1, 2, 3, false] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'color': [] }, { 'background': [] }],
+      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+      ['link', 'clean'],
+    ],
+  };
+
+  const quillFormats = [
+    'header',
+    'bold', 'italic', 'underline', 'strike',
+    'color', 'background',
+    'list', 'bullet',
+    'link'
+  ];
+
+  const [showToast, setShowToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+
+  const triggerToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setShowToast({ message, type });
+    setTimeout(() => setShowToast(null), 3000);
+  };
 
   // Fetch Data
   const fetchData = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const [jobsRes, candidatesRes, negociosRes, noticiasRes, historyRes, settingsRes] = await Promise.all([
+      const [jobsRes, candidatesRes, negociosRes, noticiasRes, historyRes, settingsRes, contatosRes] = await Promise.all([
         supabase.from('vagas').select('*').order('created_at', { ascending: false }),
         supabase.from('talentos').select('*').order('created_at', { ascending: false }),
         supabase.from('negocios').select('*').order('created_at', { ascending: false }),
         supabase.from('noticias').select('*').order('created_at', { ascending: false }),
         supabase.from('history').select('*').order('created_at', { ascending: false }),
-        supabase.from('settings').select('*').maybeSingle()
+        supabase.from('settings').select('*').maybeSingle(),
+        supabase.from('contatos').select('*').order('created_at', { ascending: false })
       ]);
 
       if (jobsRes.data) setJobs(jobsRes.data);
@@ -404,8 +493,10 @@ export default function Dashboard() {
       if (noticiasRes.data) setNoticias(noticiasRes.data);
       if (historyRes.data) setHistory(historyRes.data);
       if (settingsRes.data) setSettings(settingsRes.data);
+      if (contatosRes.data) setContatos(contatosRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
+      triggerToast('Erro ao carregar dados', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -416,17 +507,19 @@ export default function Dashboard() {
   }, [fetchData]);
 
   // CRUD Actions
-  const approveJob = React.useCallback(async (id: string) => {
-    const job = jobs.find(j => j.id === id);
+  const approveJob = React.useCallback(async (id: string | number) => {
+    const job = jobs.find(j => String(j.id) === String(id));
     if (!job) return;
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('vagas')
       .update({ status: 'active' })
-      .eq('id', id);
+      .eq('id', id)
+      .select();
 
-    if (!error) {
-      setJobs(prev => prev.map(j => j.id === id ? { ...j, status: 'active' } : j));
+    if (!error && data && data.length > 0) {
+      setJobs(prev => prev.map(j => String(j.id) === String(id) ? { ...j, status: 'active' } : j));
+      triggerToast('Vaga aprovada com sucesso!');
       
       const historyEntry = {
         action: 'Vaga Aprovada',
@@ -438,20 +531,25 @@ export default function Dashboard() {
       
       setSelectedJob(null);
       setConfirmAction(null);
+    } else {
+      console.error('Erro ao aprovar vaga:', error || 'Nenhuma linha afetada.');
+      triggerToast(error ? `Erro: ${error.message}` : 'Erro: Vaga não encontrada ou RLS bloqueou.', 'error');
     }
   }, [jobs]);
 
-  const rejectJob = React.useCallback(async (id: string) => {
-    const job = jobs.find(j => j.id === id);
+  const rejectJob = React.useCallback(async (id: string | number) => {
+    const job = jobs.find(j => String(j.id) === String(id));
     if (!job) return;
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('vagas')
       .update({ status: 'rejected' })
-      .eq('id', id);
+      .eq('id', id)
+      .select();
 
-    if (!error) {
-      setJobs(prev => prev.map(j => j.id === id ? { ...j, status: 'rejected' } : j));
+    if (!error && data && data.length > 0) {
+      setJobs(prev => prev.map(j => String(j.id) === String(id) ? { ...j, status: 'rejected' } : j));
+      triggerToast('Vaga recusada.');
       
       const historyEntry = {
         action: 'Vaga Recusada',
@@ -463,11 +561,13 @@ export default function Dashboard() {
       
       setSelectedJob(null);
       setConfirmAction(null);
+    } else {
+      triggerToast(error ? `Erro: ${error.message}` : 'Erro ao recusar vaga.', 'error');
     }
   }, [jobs]);
 
-  const deleteJob = React.useCallback(async (id: string) => {
-    const job = jobs.find(j => j.id === id);
+  const deleteJob = React.useCallback(async (id: string | number) => {
+    const job = jobs.find(j => String(j.id) === String(id));
     if (!job) return;
 
     const { error } = await supabase
@@ -476,29 +576,34 @@ export default function Dashboard() {
       .eq('id', id);
 
     if (!error) {
-      setJobs(prev => prev.filter(j => j.id !== id));
+      setJobs(prev => prev.filter(j => String(j.id) !== String(id)));
+      triggerToast('Vaga removida.');
       
       const historyEntry = {
         action: 'Vaga Removida',
-        details: `Vaga "${job.title}" foi removida manualmente.`
+        details: `Vaga "${job.title}" da empresa "${job.company}" foi removida manualmente.`
       };
       
       const { data: hData } = await supabase.from('history').insert(historyEntry).select().single();
       if (hData) setHistory(prev => [hData, ...prev]);
+    } else {
+      triggerToast(`Erro ao deletar: ${error.message}`, 'error');
     }
   }, [jobs]);
 
-  const approveCandidate = React.useCallback(async (id: string) => {
-    const cand = candidates.find(c => c.id === id);
+  const approveCandidate = React.useCallback(async (id: string | number) => {
+    const cand = candidates.find(c => String(c.id) === String(id));
     if (!cand) return;
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('talentos')
       .update({ status: 'active' })
-      .eq('id', id);
+      .eq('id', id)
+      .select();
 
-    if (!error) {
-      setCandidates(prev => prev.map(c => c.id === id ? { ...c, status: 'active' } : c));
+    if (!error && data && data.length > 0) {
+      setCandidates(prev => prev.map(c => String(c.id) === String(id) ? { ...c, status: 'active' } : c));
+      triggerToast('Currículo aprovado!');
       
       const historyEntry = {
         action: 'Currículo Aprovado',
@@ -510,20 +615,24 @@ export default function Dashboard() {
       
       setSelectedCandidate(null);
       setConfirmAction(null);
+    } else {
+      triggerToast(error ? `Erro: ${error.message}` : 'Erro: Currículo não encontrado ou RLS bloqueou.', 'error');
     }
   }, [candidates]);
 
-  const rejectCandidate = React.useCallback(async (id: string) => {
-    const cand = candidates.find(c => c.id === id);
+  const rejectCandidate = React.useCallback(async (id: string | number) => {
+    const cand = candidates.find(c => String(c.id) === String(id));
     if (!cand) return;
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('talentos')
       .update({ status: 'rejected' })
-      .eq('id', id);
+      .eq('id', id)
+      .select();
 
-    if (!error) {
-      setCandidates(prev => prev.map(c => c.id === id ? { ...c, status: 'rejected' } : c));
+    if (!error && data && data.length > 0) {
+      setCandidates(prev => prev.map(c => String(c.id) === String(id) ? { ...c, status: 'rejected' } : c));
+      triggerToast('Currículo recusado.');
       
       const historyEntry = {
         action: 'Currículo Recusado',
@@ -535,6 +644,8 @@ export default function Dashboard() {
       
       setSelectedCandidate(null);
       setConfirmAction(null);
+    } else {
+      triggerToast(error ? `Erro: ${error.message}` : 'Erro ao recusar currículo.', 'error');
     }
   }, [candidates]);
 
@@ -588,7 +699,7 @@ export default function Dashboard() {
       .single();
 
     if (data && !error) {
-      setJobs(prev => prev.map(j => j.id === data.id ? data : j));
+      setJobs(prev => prev.map(j => String(j.id) === String(data.id) ? data : j));
       setEditingJob(null);
       setConfirmAction(null);
       
@@ -601,8 +712,8 @@ export default function Dashboard() {
     }
   }, []);
 
-  const deleteCandidate = React.useCallback(async (id: string) => {
-    const cand = candidates.find(c => c.id === id);
+  const deleteCandidate = React.useCallback(async (id: string | number) => {
+    const cand = candidates.find(c => String(c.id) === String(id));
     if (!cand) return;
 
     const { error } = await supabase
@@ -611,7 +722,8 @@ export default function Dashboard() {
       .eq('id', id);
 
     if (!error) {
-      setCandidates(prev => prev.filter(c => c.id !== id));
+      setCandidates(prev => prev.filter(c => String(c.id) !== String(id)));
+      triggerToast('Currículo removido.');
       setConfirmAction(null);
       
       const historyEntry = {
@@ -620,6 +732,8 @@ export default function Dashboard() {
       };
       const { data: hData } = await supabase.from('history').insert(historyEntry).select().single();
       if (hData) setHistory(prev => [hData, ...prev]);
+    } else {
+      triggerToast(`Erro ao deletar: ${error.message}`, 'error');
     }
   }, [candidates]);
 
@@ -639,7 +753,7 @@ export default function Dashboard() {
       .single();
 
     if (data && !error) {
-      setCandidates(prev => prev.map(c => c.id === data.id ? data : c));
+      setCandidates(prev => prev.map(c => String(c.id) === String(data.id) ? data : c));
       setEditingCandidate(null);
       setConfirmAction(null);
       
@@ -653,12 +767,13 @@ export default function Dashboard() {
   }, []);
 
   // Negocios CRUD
-  const approveNegocio = React.useCallback(async (id: string) => {
-    const negocio = negocios.find(n => n.id === id);
+  const approveNegocio = React.useCallback(async (id: string | number) => {
+    const negocio = negocios.find(n => String(n.id) === String(id));
     if (!negocio) return;
-    const { error } = await supabase.from('negocios').update({ status: 'active' }).eq('id', id);
-    if (!error) {
-      setNegocios(prev => prev.map(n => n.id === id ? { ...n, status: 'active' } : n));
+    const { data, error } = await supabase.from('negocios').update({ status: 'active' }).eq('id', id).select();
+    if (!error && data && data.length > 0) {
+      setNegocios(prev => prev.map(n => String(n.id) === String(id) ? { ...n, status: 'active' } : n));
+      triggerToast('Negócio aprovado!');
       const { data: hData } = await supabase.from('history').insert({
         action: 'Negócio Aprovado',
         details: `Negócio "${negocio.title}" foi aprovado.`
@@ -666,15 +781,18 @@ export default function Dashboard() {
       if (hData) setHistory(prev => [hData, ...prev]);
       setSelectedNegocio(null);
       setConfirmAction(null);
+    } else {
+      triggerToast(error ? `Erro: ${error.message}` : 'Erro: Negócio não encontrado ou RLS bloqueou.', 'error');
     }
   }, [negocios]);
 
-  const rejectNegocio = React.useCallback(async (id: string) => {
-    const negocio = negocios.find(n => n.id === id);
+  const rejectNegocio = React.useCallback(async (id: string | number) => {
+    const negocio = negocios.find(n => String(n.id) === String(id));
     if (!negocio) return;
-    const { error } = await supabase.from('negocios').update({ status: 'rejected' }).eq('id', id);
-    if (!error) {
-      setNegocios(prev => prev.map(n => n.id === id ? { ...n, status: 'rejected' } : n));
+    const { data, error } = await supabase.from('negocios').update({ status: 'rejected' }).eq('id', id).select();
+    if (!error && data && data.length > 0) {
+      setNegocios(prev => prev.map(n => String(n.id) === String(id) ? { ...n, status: 'rejected' } : n));
+      triggerToast('Negócio recusado.');
       const { data: hData } = await supabase.from('history').insert({
         action: 'Negócio Recusado',
         details: `Negócio "${negocio.title}" foi recusado.`
@@ -682,30 +800,35 @@ export default function Dashboard() {
       if (hData) setHistory(prev => [hData, ...prev]);
       setSelectedNegocio(null);
       setConfirmAction(null);
+    } else {
+      triggerToast(error ? `Erro: ${error.message}` : 'Erro ao recusar negócio.', 'error');
     }
   }, [negocios]);
 
-  const deleteNegocio = React.useCallback(async (id: string) => {
-    const negocio = negocios.find(n => n.id === id);
+  const deleteNegocio = React.useCallback(async (id: string | number) => {
+    const negocio = negocios.find(n => String(n.id) === String(id));
     if (!negocio) return;
     const { error } = await supabase.from('negocios').delete().eq('id', id);
     if (!error) {
-      setNegocios(prev => prev.filter(n => n.id !== id));
+      setNegocios(prev => prev.filter(n => String(n.id) !== String(id)));
+      triggerToast('Negócio removido.');
       const { data: hData } = await supabase.from('history').insert({
         action: 'Negócio Removido',
         details: `Negócio "${negocio.title}" foi removido manualmente.`
       }).select().single();
       if (hData) setHistory(prev => [hData, ...prev]);
       setConfirmAction(null);
+    } else {
+      triggerToast(error ? `Erro: ${error.message}` : 'Erro ao deletar.', 'error');
     }
   }, [negocios]);
 
-  const approveNoticia = React.useCallback(async (id: string) => {
-    const noticia = noticias.find(n => n.id === id);
+  const approveNoticia = React.useCallback(async (id: string | number) => {
+    const noticia = noticias.find(n => String(n.id) === String(id));
     if (!noticia) return;
-    const { error } = await supabase.from('noticias').update({ status: 'active', published_at: new Date().toISOString() }).eq('id', id);
-    if (!error) {
-      setNoticias(prev => prev.map(n => n.id === id ? { ...n, status: 'active' } : n));
+    const { data, error } = await supabase.from('noticias').update({ status: 'active', published_at: new Date().toISOString() }).eq('id', id).select();
+    if (!error && data && data.length > 0) {
+      setNoticias(prev => prev.map(n => String(n.id) === String(id) ? { ...n, status: 'active' } : n));
       const { data: hData } = await supabase.from('history').insert({
         action: 'Notícia Aprovada',
         details: `Notícia "${noticia.title}" foi publicada.`
@@ -713,6 +836,9 @@ export default function Dashboard() {
       if (hData) setHistory(prev => [hData, ...prev]);
       setSelectedNoticia(null);
       setConfirmAction(null);
+      triggerToast('Notícia aprovada!');
+    } else {
+      triggerToast(error ? `Erro: ${error.message}` : 'Erro: Notícia não encontrada ou RLS bloqueou.', 'error');
     }
   }, [noticias]);
 
@@ -763,7 +889,7 @@ export default function Dashboard() {
     }
   }, []);
 
-  const deleteNoticia = React.useCallback(async (id: string) => {
+  const deleteNoticia = React.useCallback(async (id: string | number) => {
     const noticia = noticias.find(n => n.id === id);
     if (!noticia) return;
     const { error } = await supabase.from('noticias').delete().eq('id', id);
@@ -777,6 +903,23 @@ export default function Dashboard() {
       setConfirmAction(null);
     }
   }, [noticias]);
+
+  const deleteContato = React.useCallback(async (id: string | number) => {
+    const { error } = await supabase.from('contatos').delete().eq('id', id);
+    if (!error) {
+      setContatos(prev => prev.filter(c => String(c.id) !== String(id)));
+      triggerToast('Mensagem removida.');
+    } else {
+      triggerToast('Erro ao remover mensagem.', 'error');
+    }
+  }, []);
+
+  const markContatoAsRead = React.useCallback(async (id: string | number) => {
+    const { error } = await supabase.from('contatos').update({ lida: true }).eq('id', id);
+    if (!error) {
+      setContatos(prev => prev.map(c => String(c.id) === String(id) ? { ...c, lida: true } : c));
+    }
+  }, []);
 
   const handleSaveSettings = React.useCallback(async (formData: FormData) => {
     const newSettings = {
@@ -797,8 +940,7 @@ export default function Dashboard() {
 
     if (!error && data) {
       setSettings(data);
-      setShowToast('Configurações salvas com sucesso!');
-      setTimeout(() => setShowToast(null), 3000);
+      triggerToast('Configurações salvas com sucesso!');
       
       const historyEntry = {
         action: 'Configurações Atualizadas',
@@ -808,8 +950,7 @@ export default function Dashboard() {
       if (hData) setHistory(prev => [hData, ...prev]);
     } else {
       console.error('Error saving settings:', error);
-      setShowToast('Erro ao salvar configurações. Verifique se a tabela existe.');
-      setTimeout(() => setShowToast(null), 3000);
+      triggerToast('Erro ao salvar configurações.', 'error');
     }
   }, [settings.id]);
 
@@ -930,7 +1071,11 @@ export default function Dashboard() {
                     <p className="text-on-surface-variant mt-1">Crie e edite as últimas novidades da comunidade.</p>
                   </div>
                   <button 
-                    onClick={() => setIsAddingNoticia(true)}
+                    onClick={() => {
+                      setIsAddingNoticia(true);
+                      setNewsContent('');
+                      setNewsImageUrl('');
+                    }}
                     className="px-6 py-3 bg-primary text-on-primary font-bold rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all flex items-center gap-2"
                   >
                     <Megaphone className="w-5 h-5" />
@@ -956,7 +1101,14 @@ export default function Dashboard() {
                             <div className="flex items-center gap-3">
                               {n.image_url && (
                                 <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0">
-                                  <Image src={n.image_url} alt={n.title} fill className="object-cover" />
+                                  <Image 
+                                    src={n.image_url} 
+                                    alt={n.title} 
+                                    fill 
+                                    className="object-cover" 
+                                    unoptimized 
+                                    referrerPolicy="no-referrer"
+                                  />
                                 </div>
                               )}
                               <p className="font-bold text-on-surface line-clamp-1">{n.title}</p>
@@ -976,7 +1128,11 @@ export default function Dashboard() {
                           <td className="px-6 py-5 text-right">
                             <div className="flex justify-end gap-2">
                               <button 
-                                onClick={() => setEditingNoticia(n)}
+                                onClick={() => {
+                                  setEditingNoticia(n);
+                                  setNewsContent(n.content);
+                                  setNewsImageUrl(n.image_url || '');
+                                }}
                                 className="p-2 text-on-surface-variant hover:text-primary transition-colors"
                               >
                                 <Edit className="w-5 h-5" />
@@ -1052,7 +1208,7 @@ export default function Dashboard() {
                           <td className="px-4 py-4 rounded-l-xl">
                             <div className="flex items-center gap-3">
                               <div className="relative w-10 h-10 rounded-lg overflow-hidden shadow-sm">
-                                <Image src={c.image} alt={c.name} fill className="object-cover" referrerPolicy="no-referrer" />
+                                <CandidateAvatar src={c.image} name={c.name} />
                               </div>
                               <div>
                                 <p className="font-bold text-on-surface">{c.name}</p>
@@ -1425,7 +1581,7 @@ export default function Dashboard() {
                         <div key={cand.id} className="p-4 bg-white rounded-2xl border border-outline-variant/10 shadow-sm flex justify-between items-center">
                           <div className="flex items-center gap-3">
                             <div className="relative w-8 h-8 rounded-lg overflow-hidden">
-                              <Image src={cand.image} alt={cand.name} fill className="object-cover" referrerPolicy="no-referrer" />
+                              <CandidateAvatar src={cand.image} name={cand.name} />
                             </div>
                             <div>
                               <p className="font-bold text-on-surface">{cand.name}</p>
@@ -1475,6 +1631,91 @@ export default function Dashboard() {
               </motion.div>
             )}
             
+            {activeView === 'contatos' && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-8"
+              >
+                <header>
+                  <h1 className="text-3xl font-extrabold text-primary tracking-tight font-headline">Mensagens de Contato</h1>
+                  <p className="text-on-surface-variant mt-1">Veja quem entrou em contato através do formulário do site.</p>
+                </header>
+
+                <div className="grid grid-cols-1 gap-6 text-left">
+                  {contatos.length > 0 ? (
+                    contatos.map((contato) => (
+                      <div 
+                        key={contato.id} 
+                        className={cn(
+                          "bg-white p-6 rounded-3xl border transition-all duration-300 relative group",
+                          contato.lida ? "border-outline-variant/10 opacity-70" : "border-primary/20 shadow-md shadow-primary/5"
+                        )}
+                      >
+                        {!contato.lida && (
+                          <div className="absolute top-6 right-6 flex items-center gap-2">
+                             <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+                             <span className="text-[10px] font-black text-primary uppercase tracking-widest">Nova</span>
+                          </div>
+                        )}
+                        
+                        <div className="flex flex-col md:flex-row md:items-start gap-6">
+                          <div className={cn(
+                            "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0",
+                            contato.lida ? "bg-surface-container-highest text-on-surface-variant" : "bg-primary/10 text-primary"
+                          )}>
+                            <Mail className="w-6 h-6" />
+                          </div>
+                          
+                          <div className="flex-1 space-y-4">
+                            <div>
+                               <div className="flex items-center gap-3 mb-1 flex-wrap">
+                                 <h3 className="text-lg font-bold text-on-surface">{contato.nome}</h3>
+                                 <span className="text-xs font-medium text-on-surface-variant">{contato.email}</span>
+                                 <span className="text-[10px] font-bold text-outline uppercase tracking-widest bg-surface-container-low px-2 py-0.5 rounded-full">
+                                   {new Date(contato.created_at).toLocaleString('pt-BR')}
+                                 </span>
+                               </div>
+                               <p className="text-primary font-bold text-sm">{contato.assunto}</p>
+                            </div>
+
+                            <div className="bg-[#f6f3f2] p-6 rounded-2xl text-on-surface-variant text-sm border border-outline-variant/5 italic shadow-inner">
+                              &quot;{contato.mensagem}&quot;
+                            </div>
+
+                            <div className="flex items-center gap-4 pt-2">
+                              {!contato.lida && (
+                                <button 
+                                  onClick={() => markContatoAsRead(contato.id)}
+                                  className="text-xs font-black uppercase tracking-widest text-primary hover:bg-primary/5 px-4 py-2 rounded-xl transition-all"
+                                >
+                                  Marcar como Lida
+                                </button>
+                              )}
+                              <button 
+                                onClick={() => deleteContato(contato.id)}
+                                className="text-xs font-black uppercase tracking-widest text-error hover:bg-error/5 px-4 py-2 rounded-xl transition-all"
+                              >
+                                Apagar Mensagem
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="py-20 text-center bg-white rounded-3xl border border-dashed border-outline-variant/30">
+                      <div className="w-20 h-20 bg-surface-container-low rounded-full flex items-center justify-center mx-auto mb-6 text-outline">
+                        <Mail className="w-10 h-10" />
+                      </div>
+                      <p className="text-on-surface-variant font-bold">Nenhuma mensagem recebida ainda.</p>
+                      <p className="text-xs text-outline mt-1">As mensagens enviadas pelo site aparecerão aqui.</p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
             {activeView === 'historico' && (
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
@@ -1610,7 +1851,7 @@ export default function Dashboard() {
                         </div>
                         <div className="flex gap-4 mb-4">
                           <div className="relative w-16 h-16 rounded-full overflow-hidden shadow-md shrink-0">
-                            <Image src={cand.image} alt={cand.name} fill className="object-cover" referrerPolicy="no-referrer" />
+                            <CandidateAvatar src={cand.image} name={cand.name} />
                           </div>
                           <div>
                             <span className="px-2 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold uppercase tracking-widest">{cand.area}</span>
@@ -1933,7 +2174,7 @@ export default function Dashboard() {
                 <div className="flex justify-between items-start mb-8">
                   <div className="flex gap-4">
                     <div className="relative w-16 lg:w-20 h-16 lg:h-20 rounded-2xl overflow-hidden shadow-xl">
-                      <Image src={selectedCandidate.image} alt={selectedCandidate.name} fill className="object-cover" referrerPolicy="no-referrer" />
+                      <CandidateAvatar src={selectedCandidate.image} name={selectedCandidate.name} />
                       {selectedCandidate.verified && (
                         <div className="absolute -bottom-1 -right-1 w-6 h-6 lg:w-7 lg:h-7 rounded-full bg-tertiary-fixed flex items-center justify-center border-2 lg:border-4 border-white">
                           <Verified className="w-3 h-3 lg:w-4 lg:h-4 text-on-tertiary-fixed fill-current" />
@@ -2193,7 +2434,15 @@ export default function Dashboard() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-on-surface-variant uppercase">Salário</label>
-                  <input name="salary" defaultValue={editingJob.salary} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+                  <input 
+                    name="salary" 
+                    defaultValue={editingJob.salary} 
+                    className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none"
+                    onInput={(e) => {
+                      const input = e.target as HTMLInputElement;
+                      input.value = maskCurrency(input.value);
+                    }}
+                  />
                 </div>
               </div>
               <div className="space-y-1">
@@ -2278,59 +2527,174 @@ export default function Dashboard() {
       )}
 
         {isAddingNoticia && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[90] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-white rounded-3xl p-6 lg:p-8 max-w-2xl w-full shadow-2xl border border-outline-variant/10 max-h-[90vh] overflow-y-auto"
+              className={cn(
+                "bg-white rounded-3xl p-6 lg:p-10 w-full shadow-2xl border border-outline-variant/10 max-h-[90vh] overflow-y-auto transition-all",
+                isEditorExpanded ? "max-w-6xl" : "max-w-4xl"
+              )}
             >
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl lg:text-2xl font-bold text-primary font-headline">Postar Nova Notícia</h2>
-                <button onClick={() => setIsAddingNoticia(false)} className="p-2 hover:bg-surface-container rounded-full transition-colors">
-                  <XCircle className="w-6 h-6 text-on-surface-variant" />
-                </button>
+              <div className="flex justify-between items-center mb-8">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
+                    <Megaphone className="w-6 h-6" />
+                  </div>
+                  <h2 className="text-2xl lg:text-3xl font-black text-primary font-headline">Nova Notícia</h2>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => setIsEditorExpanded(!isEditorExpanded)}
+                    className="p-3 hover:bg-surface-container rounded-2xl transition-all text-on-surface-variant flex items-center gap-2 font-bold text-xs"
+                  >
+                    {isEditorExpanded ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+                    {isEditorExpanded ? 'Reduzir' : 'Expandir'}
+                  </button>
+                  <button onClick={() => {
+                    setIsAddingNoticia(false);
+                    setNewsContent('');
+                    setNewsImageUrl('');
+                    setIsEditorExpanded(false);
+                  }} className="p-2 hover:bg-surface-container rounded-full transition-colors">
+                    <XCircle className="w-8 h-8 text-on-surface-variant" />
+                  </button>
+                </div>
               </div>
+
               <form onSubmit={(e) => {
                 e.preventDefault();
                 const formData = new FormData(e.currentTarget);
                 addNoticia({
                   title: formData.get('title') as string,
-                  content: formData.get('content') as string,
+                  content: newsContent,
                   excerpt: formData.get('excerpt') as string,
-                  image_url: formData.get('image_url') as string,
+                  image_url: newsImageUrl,
                   category: formData.get('category') as string,
                   author: formData.get('author') as string,
                 });
-              }} className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase">Título da Notícia</label>
-                  <input name="title" required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Ex: Grande evento comunitário" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-on-surface-variant uppercase">Categoria</label>
-                    <input name="category" className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Ex: Eventos" />
+                setNewsContent('');
+                setNewsImageUrl('');
+                setIsEditorExpanded(false);
+              }} className="space-y-6">
+                <div className="grid lg:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-on-surface-variant ml-1">Título do Artigo *</label>
+                    <input name="title" required className="w-full p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all" placeholder="Ex: Impacto das histórias de vida..." />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-on-surface-variant uppercase">Autor</label>
-                    <input name="author" className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Nome do autor" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-on-surface-variant ml-1">Categoria</label>
+                      <input name="category" className="w-full p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all" placeholder="Ex: Eventos" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-on-surface-variant ml-1">Autor</label>
+                      <input name="author" className="w-full p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all" placeholder="Nome do autor" />
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase">URL da Imagem</label>
-                  <input name="image_url" className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="https://exemplo.com/imagem.jpg" />
+
+                <div className="grid lg:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-on-surface-variant ml-1">Imagem de Capa</label>
+                    <div className="flex gap-4">
+                      <div className="relative flex-1">
+                        <input 
+                          type="text"
+                          value={newsImageUrl}
+                          onChange={(e) => setNewsImageUrl(e.target.value)}
+                          className="w-full p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all"
+                          placeholder="Cole o link ou use o botão ->" 
+                        />
+                        <input 
+                          name="image_url"
+                          type="hidden"
+                          value={newsImageUrl}
+                        />
+                      </div>
+                      <label className="cursor-pointer group">
+                        <div className="h-full px-6 bg-surface-container-highest rounded-2xl flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition-all shadow-md">
+                          <Upload className="w-5 h-5" />
+                          <span className="font-bold text-xs uppercase tracking-widest">Subir</span>
+                        </div>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={(e) => handleImageUpload(e, setNewsImageUrl)}
+                        />
+                      </label>
+                    </div>
+                    {newsImageUrl && (
+                      <div className="mt-3 relative aspect-video w-48 rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg">
+                        <img src={newsImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                        <button 
+                          type="button"
+                          onClick={() => setNewsImageUrl('')}
+                          className="absolute top-2 right-2 p-1 bg-black/60 text-white rounded-full hover:bg-error transition-colors"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-on-surface-variant ml-1">Resumo Curto (opcional)</label>
+                    <textarea name="excerpt" rows={4} className="w-full p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all" placeholder="Aparecerá nos cards de notícia..."></textarea>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase">Resumo / Excerpt</label>
-                  <textarea name="excerpt" rows={2} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Breve resumo da notícia..."></textarea>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase tracking-widest text-on-surface-variant ml-1">Conteúdo do Artigo</label>
+                  <div className={cn("bg-white rounded-2xl", isEditorExpanded ? "h-[500px]" : "h-[350px]")}>
+                    <ReactQuill 
+                      theme="snow"
+                      value={newsContent}
+                      onChange={setNewsContent}
+                      modules={quillModules}
+                      formats={quillFormats}
+                      className="h-full quill-editor"
+                      placeholder="Comece a escrever sua história aqui..."
+                    />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase">Conteúdo Principal</label>
-                  <textarea name="content" required rows={6} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Escreva o artigo completo..."></textarea>
-                </div>
-                <div className="flex gap-3 pt-4">
-                  <button type="button" onClick={() => setIsAddingNoticia(false)} className="flex-1 py-3 px-4 bg-surface-container-highest text-on-surface rounded-xl font-bold hover:bg-surface-container transition-all">Cancelar</button>
-                  <button type="submit" className="flex-1 py-3 px-4 bg-primary text-on-primary rounded-xl font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">Publicar Notícia</button>
+
+                <style jsx global>{`
+                  .quill-editor .ql-container {
+                    border-bottom-left-radius: 1rem;
+                    border-bottom-right-radius: 1rem;
+                    font-size: 1rem;
+                    background: #fbfbfb;
+                  }
+                  .quill-editor .ql-toolbar {
+                    border-top-left-radius: 1rem;
+                    border-top-right-radius: 1rem;
+                    background: #fff;
+                    border-color: #bec8d130;
+                  }
+                  .quill-editor .ql-container {
+                    border-color: #bec8d130;
+                  }
+                `}</style>
+
+                <div className="flex gap-4 pt-8">
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setIsAddingNoticia(false);
+                      setNewsContent('');
+                      setNewsImageUrl('');
+                    }} 
+                    className="flex-1 py-5 px-8 bg-surface-container-highest text-on-surface rounded-[1.5rem] font-black uppercase tracking-widest text-xs hover:bg-surface-container transition-all active:scale-95"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="flex-[2] py-5 px-8 bg-primary text-on-primary rounded-[1.5rem] font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
+                  >
+                    Publicar Artigo Agora
+                  </button>
                 </div>
               </form>
             </motion.div>
@@ -2338,17 +2702,39 @@ export default function Dashboard() {
         )}
 
         {editingNoticia && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[90] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-white rounded-3xl p-6 lg:p-8 max-w-2xl w-full shadow-2xl border border-outline-variant/10 max-h-[90vh] overflow-y-auto"
+              className={cn(
+                "bg-white rounded-3xl p-6 lg:p-10 w-full shadow-2xl border border-outline-variant/10 max-h-[90vh] overflow-y-auto transition-all",
+                isEditorExpanded ? "max-w-6xl" : "max-w-4xl"
+              )}
             >
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl lg:text-2xl font-bold text-primary font-headline">Editar Notícia</h2>
-                <button onClick={() => setEditingNoticia(null)} className="p-2 hover:bg-surface-container rounded-full transition-colors">
-                  <XCircle className="w-6 h-6 text-on-surface-variant" />
-                </button>
+              <div className="flex justify-between items-center mb-8">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
+                    <Edit className="w-6 h-6" />
+                  </div>
+                  <h2 className="text-2xl lg:text-3xl font-bold text-primary font-headline">Editar Notícia</h2>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => setIsEditorExpanded(!isEditorExpanded)}
+                    className="p-3 hover:bg-surface-container rounded-2xl transition-all text-on-surface-variant flex items-center gap-2 font-bold text-xs"
+                  >
+                    {isEditorExpanded ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+                    {isEditorExpanded ? 'Reduzir' : 'Expandir'}
+                  </button>
+                  <button onClick={() => {
+                    setEditingNoticia(null);
+                    setNewsContent('');
+                    setNewsImageUrl('');
+                    setIsEditorExpanded(false);
+                  }} className="p-2 hover:bg-surface-container rounded-full transition-colors">
+                    <XCircle className="w-8 h-8 text-on-surface-variant" />
+                  </button>
+                </div>
               </div>
               <form onSubmit={(e) => {
                 e.preventDefault();
@@ -2356,42 +2742,109 @@ export default function Dashboard() {
                 updateNoticia({
                   ...editingNoticia,
                   title: formData.get('title') as string,
-                  content: formData.get('content') as string,
+                  content: newsContent,
                   excerpt: formData.get('excerpt') as string,
-                  image_url: formData.get('image_url') as string,
+                  image_url: newsImageUrl,
                   category: formData.get('category') as string,
                   author: formData.get('author') as string,
                 });
-              }} className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase">Título da Notícia</label>
-                  <input name="title" defaultValue={editingNoticia.title} required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-on-surface-variant uppercase">Categoria</label>
-                    <input name="category" defaultValue={editingNoticia.category} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+                setNewsContent('');
+                setNewsImageUrl('');
+                setIsEditorExpanded(false);
+              }} className="space-y-6">
+                <div className="grid lg:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-on-surface-variant ml-1">Título da Notícia</label>
+                    <input name="title" defaultValue={editingNoticia.title} required className="w-full p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all" />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-on-surface-variant uppercase">Autor</label>
-                    <input name="author" defaultValue={editingNoticia.author} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-on-surface-variant ml-1">Categoria</label>
+                      <input name="category" defaultValue={editingNoticia.category} className="w-full p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-on-surface-variant ml-1">Autor</label>
+                      <input name="author" defaultValue={editingNoticia.author} className="w-full p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all" />
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase">URL da Imagem</label>
-                  <input name="image_url" defaultValue={editingNoticia.image_url} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+
+                <div className="grid lg:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-on-surface-variant ml-1">URL da Imagem</label>
+                    <div className="flex gap-4">
+                      <div className="relative flex-1">
+                        <input 
+                          type="text"
+                          value={newsImageUrl}
+                          onChange={(e) => setNewsImageUrl(e.target.value)}
+                          className="w-full p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all" 
+                        />
+                      </div>
+                      <label className="cursor-pointer group">
+                        <div className="h-full px-6 bg-surface-container-highest rounded-2xl flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition-all shadow-md">
+                          <Upload className="w-5 h-5" />
+                          <span className="font-bold text-xs uppercase tracking-widest">Subir</span>
+                        </div>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={(e) => handleImageUpload(e, setNewsImageUrl)}
+                        />
+                      </label>
+                    </div>
+                    {newsImageUrl && (
+                      <div className="mt-3 relative aspect-video w-48 rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg">
+                        <img src={newsImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                        <button 
+                          type="button"
+                          onClick={() => setNewsImageUrl('')}
+                          className="absolute top-2 right-2 p-1 bg-black/60 text-white rounded-full hover:bg-error transition-colors"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-on-surface-variant ml-1">Resumo / Excerpt</label>
+                    <textarea name="excerpt" defaultValue={editingNoticia.excerpt} rows={4} className="w-full p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all"></textarea>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase">Resumo / Excerpt</label>
-                  <textarea name="excerpt" defaultValue={editingNoticia.excerpt} rows={2} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none"></textarea>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase tracking-widest text-on-surface-variant ml-1">Conteúdo Principal</label>
+                  <div className={cn("bg-white rounded-2xl", isEditorExpanded ? "h-[500px]" : "h-[350px]")}>
+                    <ReactQuill 
+                      theme="snow"
+                      value={newsContent}
+                      onChange={setNewsContent}
+                      modules={quillModules}
+                      formats={quillFormats}
+                      className="h-full quill-editor"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase">Conteúdo Principal</label>
-                  <textarea name="content" defaultValue={editingNoticia.content} required rows={6} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none"></textarea>
-                </div>
-                <div className="flex gap-3 pt-4">
-                  <button type="button" onClick={() => setEditingNoticia(null)} className="flex-1 py-3 px-4 bg-surface-container-highest text-on-surface rounded-xl font-bold hover:bg-surface-container transition-all">Cancelar</button>
-                  <button type="submit" className="flex-1 py-3 px-4 bg-primary text-on-primary rounded-xl font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">Atualizar Notícia</button>
+
+                <div className="flex gap-4 pt-8">
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setEditingNoticia(null);
+                      setNewsContent('');
+                      setNewsImageUrl('');
+                    }} 
+                    className="flex-1 py-5 px-8 bg-surface-container-highest text-on-surface rounded-[1.5rem] font-black uppercase tracking-widest text-xs hover:bg-surface-container transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="flex-[2] py-5 px-8 bg-primary text-on-primary rounded-[1.5rem] font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all"
+                  >
+                    Salvar Alterações
+                  </button>
                 </div>
               </form>
             </motion.div>
@@ -2481,10 +2934,13 @@ export default function Dashboard() {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] bg-on-surface text-surface px-6 py-3 rounded-2xl shadow-2xl font-bold flex items-center gap-3"
+            className={cn(
+              "fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-6 py-4 rounded-2xl shadow-2xl font-bold flex items-center gap-3 min-w-[300px]",
+              showToast.type === 'success' ? "bg-primary text-on-primary" : "bg-error text-on-error"
+            )}
           >
-            <CheckCircle2 className="w-5 h-5 text-tertiary" />
-            {showToast}
+            {showToast.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+            {showToast.message}
           </motion.div>
         )}
       </AnimatePresence>

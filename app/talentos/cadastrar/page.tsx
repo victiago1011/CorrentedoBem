@@ -22,6 +22,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import Image from 'next/image';
+import { maskPhone } from '@/lib/utils';
 
 export default function CadastrarTalentoPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -252,7 +253,7 @@ export default function CadastrarTalentoPage() {
                     placeholder="(00) 00000-0000" 
                     className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all text-[#1b1c1c]"
                     value={formData.phone}
-                    onChange={e => setFormData({...formData, phone: e.target.value})}
+                    onChange={e => setFormData({...formData, phone: maskPhone(e.target.value)})}
                   />
                 </div>
               </div>
