@@ -6,6 +6,8 @@ const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
 import 'react-quill-new/dist/quill.snow.css';
 
 import { 
+  ChevronDown,
+  Globe,
   LayoutGrid, 
   FileText, 
   History, 
@@ -32,6 +34,7 @@ import {
   MapPin,
   Clock,
   Zap,
+  Paperclip,
   Handshake,
   Loader2,
   Edit,
@@ -44,7 +47,7 @@ import {
   User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn, maskCurrency } from '@/lib/utils';
+import { cn, maskCurrency, maskPhone, ensureExternalLink, stripHtml } from '@/lib/utils';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 
@@ -100,6 +103,8 @@ interface Job {
   company: string;
   email?: string;
   phone?: string;
+  contact_email?: string;
+  contact_phone?: string;
   site_url?: string;
   attachment_url?: string;
   location: string;
@@ -111,6 +116,7 @@ interface Job {
   salary: string;
   description: string;
   requirements: string[];
+  logo_url?: string;
   verified?: boolean;
   created_at?: string;
 }
@@ -146,6 +152,9 @@ interface Negocio {
   contact_email?: string;
   contact_phone?: string;
   contact_name?: string;
+  attachment_url?: string;
+  link?: string;
+  logo_url?: string;
   created_at?: string;
   verified?: boolean;
 }
@@ -406,6 +415,11 @@ export default function Dashboard() {
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
   const [editingNegocio, setEditingNegocio] = useState<Negocio | null>(null);
   const [editingNoticia, setEditingNoticia] = useState<Noticia | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    description: true,
+    requirements: false,
+    attachments: false
+  });
   
   const [talentSearch, setTalentSearch] = useState('');
   const [talentCategory, setTalentCategory] = useState('Todos os Talentos');
@@ -467,6 +481,23 @@ export default function Dashboard() {
   ];
 
   const [showToast, setShowToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+  const [richDescription, setRichDescription] = useState('');
+  const [richSummary, setRichSummary] = useState('');
+  const [richDescriptionNegocio, setRichDescriptionNegocio] = useState('');
+
+  useEffect(() => {
+    if (editingJob) setRichDescription(editingJob.description || '');
+    else if (!isAddingJob) setRichDescription('');
+  }, [editingJob, isAddingJob]);
+
+  useEffect(() => {
+    if (editingCandidate) setRichSummary(editingCandidate.summary || '');
+  }, [editingCandidate]);
+
+  useEffect(() => {
+    if (editingNegocio) setRichDescriptionNegocio(editingNegocio.description || '');
+    else if (!isAddingNegocio) setRichDescriptionNegocio('');
+  }, [editingNegocio, isAddingNegocio]);
 
   const triggerToast = (message: string, type: 'success' | 'error' = 'success') => {
     setShowToast({ message, type });
@@ -658,6 +689,9 @@ export default function Dashboard() {
       area: newJob.area || 'Outros Serviços',
       status: 'active',
       salary: newJob.salary || 'A combinar',
+      email: newJob.email || '',
+      phone: newJob.phone || '',
+      site_url: newJob.site_url || '',
       description: newJob.description || '',
       requirements: newJob.requirements || [],
     };
@@ -691,6 +725,8 @@ export default function Dashboard() {
         type: updatedJob.type,
         area: updatedJob.area,
         salary: updatedJob.salary,
+        site_url: updatedJob.site_url,
+        logo_url: updatedJob.logo_url,
         description: updatedJob.description,
         requirements: updatedJob.requirements,
       })
@@ -822,6 +858,43 @@ export default function Dashboard() {
       triggerToast(error ? `Erro: ${error.message}` : 'Erro ao deletar.', 'error');
     }
   }, [negocios]);
+
+  const updateNegocio = React.useCallback(async (updatedNegocio: Negocio) => {
+    const { data, error } = await supabase
+      .from('negocios')
+      .update({
+        title: updatedNegocio.title,
+        owner_name: updatedNegocio.owner_name,
+        location: updatedNegocio.location,
+        type: updatedNegocio.type,
+        area: updatedNegocio.area,
+        link: updatedNegocio.link,
+        logo_url: updatedNegocio.logo_url,
+        description: updatedNegocio.description,
+        contact_email: updatedNegocio.contact_email,
+        contact_phone: updatedNegocio.contact_phone,
+        contact_name: updatedNegocio.contact_name,
+      })
+      .eq('id', updatedNegocio.id)
+      .select()
+      .single();
+
+    if (data && !error) {
+      setNegocios(prev => prev.map(n => String(n.id) === String(data.id) ? data : n));
+      setEditingNegocio(null);
+      setConfirmAction(null);
+      
+      const historyEntry = {
+        action: 'Negócio Editado',
+        details: `Negócio "${data.title}" foi editado manualmente.`
+      };
+      const { data: hData } = await supabase.from('history').insert(historyEntry).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+      triggerToast('Negócio atualizado com sucesso!');
+    } else {
+      triggerToast(error ? `Erro: ${error.message}` : 'Erro ao atualizar negócio.', 'error');
+    }
+  }, []);
 
   const approveNoticia = React.useCallback(async (id: string | number) => {
     const noticia = noticias.find(n => String(n.id) === String(id));
@@ -997,6 +1070,7 @@ export default function Dashboard() {
                       <tr>
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Vaga / Cargo</th>
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Empresa</th>
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant px-2">Área / Tipo</th>
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Data de Envio</th>
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant text-right">Ações</th>
                       </tr>
@@ -1014,10 +1088,16 @@ export default function Dashboard() {
                           <td className="px-6 py-5">
                             <div className="flex items-center gap-3">
                               <div className={cn(
-                                "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                                "w-10 h-10 rounded-xl flex items-center justify-center transition-colors relative overflow-hidden",
                                 selectedJob?.id === job.id ? "bg-primary text-on-primary" : "bg-surface-container text-outline group-hover:bg-primary/20 group-hover:text-primary"
                               )}>
-                                <Briefcase className="w-5 h-5" />
+                                {job.logo_url ? (
+                                  <Image src={job.logo_url} alt="Logo" fill className="object-contain p-2" referrerPolicy="no-referrer" />
+                                ) : (job.attachment_url && job.attachment_url.startsWith('data:image')) ? (
+                                  <Image src={job.attachment_url} alt="Logo" fill className="object-cover" referrerPolicy="no-referrer" />
+                                ) : (
+                                  <Briefcase className="w-5 h-5" />
+                                )}
                               </div>
                               <div>
                                 <p className={cn("font-bold", selectedJob?.id === job.id ? "text-primary" : "text-on-surface")}>{job.title}</p>
@@ -1029,6 +1109,12 @@ export default function Dashboard() {
                             <div className="flex items-center gap-2">
                               <span className="font-medium">{job.company}</span>
                               {job.verified && <Verified className="w-4 h-4 text-tertiary fill-current" />}
+                            </div>
+                          </td>
+                          <td className="px-6 py-5">
+                            <div className="flex flex-col gap-1">
+                              <span className="px-2 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-lg w-fit">{job.area}</span>
+                              <span className="text-[10px] text-on-surface-variant font-medium">{job.type}</span>
                             </div>
                           </td>
                           <td className="px-6 py-5 text-sm text-on-surface-variant">
@@ -1272,7 +1358,7 @@ export default function Dashboard() {
                       <tr>
                         <th className="px-4 py-4">Negócio / Oportunidade</th>
                         <th className="px-4 py-4">Empresa</th>
-                        <th className="px-4 py-4">Tipo</th>
+                        <th className="px-4 py-4">Área / Tipo</th>
                         <th className="px-4 py-4">Status</th>
                       </tr>
                     </thead>
@@ -1288,8 +1374,14 @@ export default function Dashboard() {
                         >
                           <td className="px-4 py-4 rounded-l-xl">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center text-orange-600">
-                                <TrendingUp className="w-5 h-5" />
+                              <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center text-orange-600 relative overflow-hidden">
+                                {n.logo_url ? (
+                                  <Image src={n.logo_url} alt="Logo" fill className="object-contain p-2" referrerPolicy="no-referrer" />
+                                ) : (n.attachment_url && n.attachment_url.startsWith('data:image')) ? (
+                                  <Image src={n.attachment_url} alt="Logo" fill className="object-cover" referrerPolicy="no-referrer" />
+                                ) : (
+                                  <TrendingUp className="w-5 h-5" />
+                                )}
                               </div>
                               <div>
                                 <p className="font-bold text-on-surface">{n.title}</p>
@@ -1299,7 +1391,10 @@ export default function Dashboard() {
                           </td>
                           <td className="px-4 py-4 font-medium text-on-surface-variant">{n.owner_name}</td>
                           <td className="px-4 py-4">
-                            <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-semibold">{n.type}</span>
+                            <div className="flex flex-col gap-1">
+                              <span className="px-2 py-1 bg-orange-100 text-orange-700 text-[10px] font-bold rounded-lg w-fit">{n.area}</span>
+                              <span className="text-[10px] text-on-surface-variant font-medium">{n.type}</span>
+                            </div>
                           </td>
                           <td className="px-4 py-4 rounded-r-xl">
                             <div className="flex items-center gap-1 text-orange-600 font-bold text-xs italic uppercase">
@@ -1370,8 +1465,14 @@ export default function Dashboard() {
                     .map((n) => (
                       <div key={n.id} className="bg-white p-6 rounded-3xl shadow-sm border border-outline-variant/10 hover:shadow-md transition-all group flex flex-col">
                         <div className="flex justify-between items-start mb-4">
-                          <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-600">
-                            <TrendingUp className="w-6 h-6" />
+                          <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-600 relative overflow-hidden">
+                            {n.logo_url ? (
+                              <Image src={n.logo_url} alt="Logo" fill className="object-contain p-2" referrerPolicy="no-referrer" />
+                            ) : (n.attachment_url && n.attachment_url.startsWith('data:image')) ? (
+                              <Image src={n.attachment_url} alt="Logo" fill className="object-cover" referrerPolicy="no-referrer" />
+                            ) : (
+                              <TrendingUp className="w-6 h-6" />
+                            )}
                           </div>
                           <button 
                             onClick={() => setConfirmAction({ type: 'delete', target: 'negocio' as any, id: n.id })}
@@ -1382,7 +1483,7 @@ export default function Dashboard() {
                         </div>
                         <h3 className="font-bold text-lg mb-1">{n.title}</h3>
                         <p className="text-orange-600 font-semibold text-sm mb-3">{n.owner_name}</p>
-                        <p className="text-on-surface-variant text-xs mb-4 line-clamp-3">{n.description}</p>
+                        <p className="text-on-surface-variant text-xs mb-4 line-clamp-3">{stripHtml(n.description)}</p>
                         <div className="flex justify-between items-center pt-4 border-t border-outline-variant/10 mt-auto">
                           <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-[10px] font-bold rounded-full uppercase">{n.type}</span>
                           <button 
@@ -1490,8 +1591,14 @@ export default function Dashboard() {
                       .map((job) => (
                       <div key={job.id} className="bg-white p-6 rounded-2xl shadow-sm border border-outline-variant/10 hover:shadow-md transition-all group flex flex-col">
                         <div className="flex justify-between items-start mb-4">
-                          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                            <Briefcase className="w-6 h-6" />
+                          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary relative overflow-hidden">
+                            {job.logo_url ? (
+                              <Image src={job.logo_url} alt="Logo" fill className="object-contain p-2" referrerPolicy="no-referrer" />
+                            ) : (job.attachment_url && job.attachment_url.startsWith('data:image')) ? (
+                              <Image src={job.attachment_url} alt="Logo" fill className="object-cover" referrerPolicy="no-referrer" />
+                            ) : (
+                              <Briefcase className="w-6 h-6" />
+                            )}
                           </div>
                           <button 
                             onClick={() => setConfirmAction({ type: 'delete', target: 'job', id: job.id })}
@@ -1859,7 +1966,9 @@ export default function Dashboard() {
                             <p className="text-primary text-xs font-medium">{cand.role}</p>
                           </div>
                         </div>
-                        <p className="text-on-surface-variant text-xs mb-4 leading-relaxed line-clamp-3">{cand.summary}</p>
+                        <p className="text-on-surface-variant text-xs mb-4 leading-relaxed line-clamp-3">
+                          {stripHtml(cand.summary)}
+                        </p>
                         <div className="flex justify-between items-center mt-auto pt-4 border-t border-outline-variant/5">
                           <div className="flex items-center text-on-surface-variant text-[10px] gap-1 font-medium">
                             <MapPin className="w-3 h-3" />
@@ -1975,11 +2084,13 @@ export default function Dashboard() {
                   addJob({
                     title: formData.get('title') as string,
                     company: formData.get('company') as string,
+                    email: formData.get('email') as string,
+                    phone: formData.get('phone') as string,
                     location: formData.get('location') as string,
                     type: formData.get('type') as string,
                     area: formData.get('area') as string,
                     salary: formData.get('salary') as string,
-                    description: formData.get('description') as string,
+                    description: richDescription,
                     requirements: (formData.get('requirements') as string).split('\n').filter(r => r.trim()),
                   });
                 }} className="space-y-4">
@@ -1991,6 +2102,25 @@ export default function Dashboard() {
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-on-surface-variant uppercase">Empresa</label>
                       <input name="company" required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Nome da empresa" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-on-surface-variant uppercase">E-mail de Contato</label>
+                      <input name="email" type="email" className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="contato@empresa.com" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-on-surface-variant uppercase">Telefone / WhatsApp</label>
+                      <input 
+                        name="phone" 
+                        className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" 
+                        placeholder="(00) 00000-0000"
+                        onInput={(e) => {
+                          const input = e.target as HTMLInputElement;
+                          input.value = maskPhone(input.value);
+                        }}
+                      />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -2027,7 +2157,17 @@ export default function Dashboard() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-on-surface-variant uppercase">Descrição</label>
-                    <textarea name="description" rows={3} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="Descreva a vaga..."></textarea>
+                    <div className="bg-white rounded-xl border border-outline-variant/20 overflow-hidden">
+                      <ReactQuill 
+                        theme="snow"
+                        value={richDescription}
+                        onChange={setRichDescription}
+                        modules={quillModules}
+                        formats={quillFormats}
+                        placeholder="Descreva a vaga..."
+                        className="h-48"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-on-surface-variant uppercase">Requisitos (um por linha)</label>
@@ -2064,8 +2204,14 @@ export default function Dashboard() {
 
                 <div className="mb-8">
                   <div className="flex items-center gap-4 mb-6">
-                    <div className="relative w-16 h-16 rounded-2xl overflow-hidden border-4 border-surface-container shadow-sm">
-                      <Image src="https://picsum.photos/seed/company/200/200" alt="Logo" fill className="object-cover" referrerPolicy="no-referrer" />
+                    <div className="relative w-16 h-16 rounded-2xl overflow-hidden border-4 border-surface-container shadow-sm bg-surface-container flex items-center justify-center">
+                      {selectedJob.logo_url ? (
+                        <Image src={selectedJob.logo_url} alt="Logo" fill className="object-contain p-2" referrerPolicy="no-referrer" />
+                      ) : (selectedJob.attachment_url && selectedJob.attachment_url.startsWith('data:image')) ? (
+                        <Image src={selectedJob.attachment_url} alt="Logo" fill className="object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        <Briefcase className="w-8 h-8 text-outline" />
+                      )}
                     </div>
                     <div>
                       <h2 className="text-2xl font-extrabold text-on-surface leading-tight font-headline">{selectedJob.title}</h2>
@@ -2081,48 +2227,169 @@ export default function Dashboard() {
                       <p className="text-[10px] uppercase font-bold text-on-surface-variant mb-1">Salário</p>
                       <p className="text-sm font-bold">{selectedJob.salary}</p>
                     </div>
+                    <div className="p-4 bg-surface-container-low rounded-2xl border border-outline-variant/5">
+                      <p className="text-[10px] uppercase font-bold text-on-surface-variant mb-1">Tipo</p>
+                      <p className="text-sm font-bold">{selectedJob.type}</p>
+                    </div>
+                    <div className="p-4 bg-surface-container-low rounded-2xl border border-outline-variant/5">
+                      <p className="text-[10px] uppercase font-bold text-on-surface-variant mb-1">Área</p>
+                      <p className="text-sm font-bold">{selectedJob.area}</p>
+                    </div>
                   </div>
 
                   {/* Contact Info */}
-                  <div className="mt-4 p-4 bg-surface-container-low rounded-2xl border border-outline-variant/5">
-                    <p className="text-[10px] uppercase font-bold text-on-surface-variant mb-2">Contato da Empresa</p>
-                    <div className="space-y-2">
-                       <p className="text-sm font-medium flex items-center gap-2">
-                         <Mail className="w-4 h-4 text-primary" />
-                         {selectedJob.email || 'Não informado'}
-                       </p>
-                       {selectedJob.phone && (
-                         <p className="text-sm font-medium flex items-center gap-2">
-                           <Phone className="w-4 h-4 text-primary" />
-                           {selectedJob.phone}
-                         </p>
-                       )}
+                  <div className="mt-4 space-y-3">
+                    <div className="p-4 bg-surface-container-low rounded-2xl border border-outline-variant/5">
+                      <p className="text-[10px] uppercase font-bold text-on-surface-variant mb-2">Contato</p>
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium flex items-center gap-2">
+                          <Mail className="w-4 h-4 text-primary" />
+                          {selectedJob.email || selectedJob.contact_email || 'Não informado'}
+                        </p>
+                        {(selectedJob.phone || selectedJob.contact_phone) && (
+                          <p className="text-sm font-medium flex items-center gap-2">
+                            <Phone className="w-4 h-4 text-primary" />
+                            {selectedJob.phone || selectedJob.contact_phone}
+                          </p>
+                        )}
+                      </div>
                     </div>
+
+                    {selectedJob.site_url && (
+                      <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10">
+                        <p className="text-[10px] uppercase font-bold text-primary mb-2">Link da Vaga</p>
+                        <a 
+                          href={ensureExternalLink(selectedJob.site_url)} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-sm font-bold text-primary hover:underline flex items-center gap-2 break-all"
+                        >
+                          <Globe className="w-4 h-4 shrink-0" />
+                          <span className="truncate">{selectedJob.site_url}</span>
+                          <ExternalLink className="w-3 h-3 shrink-0" />
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="space-y-8 mb-10">
-                  <section>
-                    <h3 className="text-xs uppercase font-bold text-primary mb-3 flex items-center gap-2">
-                      <FileText className="w-4 h-4" />
-                      Descrição da Vaga
-                    </h3>
-                    <p className="text-sm text-on-surface-variant leading-relaxed">{selectedJob.description}</p>
-                  </section>
-                  <section>
-                    <h3 className="text-xs uppercase font-bold text-primary mb-3 flex items-center gap-2">
-                      <LayoutGrid className="w-4 h-4" />
-                      Requisitos
-                    </h3>
-                    <ul className="text-sm text-on-surface-variant space-y-3">
-                      {selectedJob.requirements.map((req, i) => (
-                        <li key={i} className="flex gap-3 items-start">
-                          <span className="w-1.5 h-1.5 rounded-full bg-tertiary mt-1.5 shrink-0" />
-                          {req}
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
+                <div className="space-y-4 mb-10">
+                  {/* Collapsible Sections Accordion */}
+                  <div className="border border-outline-variant/10 rounded-3xl overflow-hidden bg-surface-container-low/30">
+                    {/* Description Section */}
+                    <button 
+                      onClick={() => setExpandedSections(prev => ({...prev, description: !prev.description}))}
+                      className="w-full p-5 flex items-center justify-between transition-colors hover:bg-surface-container-low group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg text-primary group-hover:scale-110 transition-transform">
+                          <FileText className="w-4 h-4" />
+                        </div>
+                        <span className="text-sm font-bold uppercase tracking-wider">Descrição</span>
+                      </div>
+                      <ChevronDown className={cn("w-5 h-5 text-outline transition-transform duration-300", expandedSections.description && "rotate-180")} />
+                    </button>
+                    {expandedSections.description && (
+                      <div className="p-5 pt-0 text-sm text-on-surface-variant leading-relaxed animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div dangerouslySetInnerHTML={{ __html: selectedJob.description }} className="rich-text-content prose prose-sm max-w-none" />
+                      </div>
+                    )}
+
+                    <div className="h-px bg-outline-variant/10 mx-5" />
+
+                    {/* Requirements Section */}
+                    <button 
+                      onClick={() => setExpandedSections(prev => ({...prev, requirements: !prev.requirements}))}
+                      className="w-full p-5 flex items-center justify-between transition-colors hover:bg-surface-container-low group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg text-primary group-hover:scale-110 transition-transform">
+                          <LayoutGrid className="w-4 h-4" />
+                        </div>
+                        <span className="text-sm font-bold uppercase tracking-wider">Requisitos</span>
+                      </div>
+                      <ChevronDown className={cn("w-5 h-5 text-outline transition-transform duration-300", expandedSections.requirements && "rotate-180")} />
+                    </button>
+                    {expandedSections.requirements && (
+                      <div className="p-5 pt-0 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <ul className="text-sm text-on-surface-variant space-y-3">
+                          {selectedJob.requirements.map((req, i) => (
+                            <li key={i} className="flex gap-3 items-start">
+                              <span className="w-1.5 h-1.5 rounded-full bg-tertiary mt-1.5 shrink-0" />
+                              {req}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <div className="h-px bg-outline-variant/10 mx-5" />
+
+                    {/* Attachments Section */}
+                    <button 
+                      onClick={() => setExpandedSections(prev => ({...prev, attachments: !prev.attachments}))}
+                      className="w-full p-5 flex items-center justify-between transition-colors hover:bg-surface-container-low group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg text-primary group-hover:scale-110 transition-transform">
+                          <Paperclip className="w-4 h-4" />
+                        </div>
+                        <span className="text-sm font-bold uppercase tracking-wider">Anexos</span>
+                      </div>
+                      <ChevronDown className={cn("w-5 h-5 text-outline transition-transform duration-300", expandedSections.attachments && "rotate-180")} />
+                    </button>
+                    {expandedSections.attachments && (
+                       <div className="p-5 pt-0 animate-in fade-in slide-in-from-top-2 duration-300">
+                        {selectedJob.attachment_url ? (
+                          <div className="p-4 bg-surface-container rounded-2xl border border-outline-variant/10">
+                            {selectedJob.attachment_url.startsWith('data:image') ? (
+                              <div className="space-y-3">
+                                <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-inner bg-black/5">
+                                  <Image src={selectedJob.attachment_url} alt="Anexo" fill className="object-contain" referrerPolicy="no-referrer" />
+                                </div>
+                                <button 
+                                  onClick={() => {
+                                    const link = document.createElement('a');
+                                    link.href = selectedJob.attachment_url!;
+                                    link.download = `anexo-vaga-${selectedJob.id}`;
+                                    link.click();
+                                  }}
+                                  className="w-full py-2 bg-white text-primary text-[10px] font-bold uppercase tracking-wider rounded-xl border border-primary/20 hover:bg-primary/5 transition-colors flex items-center justify-center gap-2"
+                                >
+                                  <Upload className="w-3 h-3 rotate-180" />
+                                  Baixar Imagem
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="p-2 bg-primary/10 rounded-lg">
+                                    <FileText className="w-5 h-5 text-primary" />
+                                  </div>
+                                  <span className="text-xs font-bold truncate max-w-[120px]">Documento</span>
+                                </div>
+                                <button 
+                                  onClick={() => {
+                                    const link = document.createElement('a');
+                                    link.href = selectedJob.attachment_url!;
+                                    link.download = `documento-vaga-${selectedJob.id}`;
+                                    link.click();
+                                  }}
+                                  className="p-2 bg-primary text-on-primary rounded-lg shadow-lg shadow-primary/20 hover:scale-105 transition-transform"
+                                >
+                                  <Upload className="w-3 h-3 rotate-180" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-center py-4 p-4 border border-dashed border-outline-variant/30 rounded-2xl">
+                             <p className="text-xs text-outline italic">Nenhum anexo enviado.</p>
+                          </div>
+                        )}
+                       </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="bg-surface-container-low p-6 rounded-3xl border border-outline-variant/20">
@@ -2199,7 +2466,7 @@ export default function Dashboard() {
                 <div className="space-y-8 mb-10">
                   <section>
                     <h4 className="text-xs font-bold uppercase tracking-widest text-secondary mb-3">Resumo do Perfil</h4>
-                    <p className="text-on-surface-variant text-sm leading-relaxed">{selectedCandidate.summary}</p>
+                    <div dangerouslySetInnerHTML={{ __html: selectedCandidate.summary }} className="text-on-surface-variant text-sm leading-relaxed rich-text-content prose prose-sm max-w-none" />
                   </section>
                   <section>
                     <h4 className="text-xs font-bold uppercase tracking-widest text-secondary mb-3">Informações de Contato</h4>
@@ -2283,8 +2550,14 @@ export default function Dashboard() {
               >
                 <div className="flex justify-between items-start mb-8">
                   <div className="flex gap-4">
-                    <div className="w-16 lg:w-20 h-16 lg:h-20 bg-orange-100 rounded-3xl flex items-center justify-center text-orange-600 shadow-xl">
-                      <TrendingUp className="w-8 h-8 lg:w-10 lg:h-10" />
+                    <div className="w-16 lg:w-20 h-16 lg:h-20 bg-orange-100 rounded-3xl flex items-center justify-center text-orange-600 shadow-xl overflow-hidden relative">
+                      {selectedNegocio.logo_url ? (
+                        <Image src={selectedNegocio.logo_url} alt="Logo" fill className="object-contain p-2" referrerPolicy="no-referrer" />
+                      ) : (selectedNegocio.attachment_url && selectedNegocio.attachment_url.startsWith('data:image')) ? (
+                        <Image src={selectedNegocio.attachment_url} alt="Logo" fill className="object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        <TrendingUp className="w-8 h-8 lg:w-10 lg:h-10" />
+                      )}
                     </div>
                     <div>
                       <h3 className="text-xl lg:text-2xl font-extrabold text-on-surface leading-tight font-headline">{selectedNegocio.title}</h3>
@@ -2307,15 +2580,138 @@ export default function Dashboard() {
                       <p className="text-sm font-bold">{selectedNegocio.location}</p>
                     </div>
                     <div className="p-4 bg-orange-50/50 rounded-2xl border border-orange-100">
-                      <p className="text-[10px] uppercase font-bold text-orange-600 mb-1">Tipo</p>
+                      <p className="text-[10px] uppercase font-bold text-orange-600 mb-1">Área</p>
+                      <p className="text-sm font-bold">{selectedNegocio.area}</p>
+                    </div>
+                    <div className="p-4 bg-orange-50/50 rounded-2xl border border-orange-100 col-span-2">
+                      <p className="text-[10px] uppercase font-bold text-orange-600 mb-1">Tipo de Negócio</p>
                       <p className="text-sm font-bold">{selectedNegocio.type}</p>
                     </div>
                   </div>
 
-                  <section>
-                    <h4 className="text-xs font-bold uppercase tracking-widest text-orange-600 mb-3">Sobre a Oportunidade</h4>
-                    <p className="text-on-surface-variant text-sm leading-relaxed">{selectedNegocio.description}</p>
-                  </section>
+                  {selectedNegocio.link && (
+                    <div className="p-4 bg-orange-50 rounded-2xl border border-orange-200">
+                      <p className="text-[10px] uppercase font-bold text-orange-600 mb-2">Link do Negócio / Site</p>
+                      <a 
+                        href={ensureExternalLink(selectedNegocio.link)} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-sm font-bold text-orange-600 hover:underline flex items-center gap-2 break-all"
+                      >
+                        <Globe className="w-4 h-4 shrink-0" />
+                        <span className="truncate">{selectedNegocio.link}</span>
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Contact Info for Business */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {selectedNegocio.contact_email && (
+                      <div className="p-4 bg-surface-container rounded-2xl border border-outline-variant/10">
+                        <p className="text-[10px] uppercase font-bold text-on-surface-variant mb-1">E-mail de Contato</p>
+                        <a href={`mailto:${selectedNegocio.contact_email}`} className="text-sm font-bold text-primary hover:underline flex items-center gap-2">
+                          <Mail className="w-4 h-4" /> {selectedNegocio.contact_email}
+                        </a>
+                      </div>
+                    )}
+                    {selectedNegocio.contact_phone && (
+                      <div className="p-4 bg-surface-container rounded-2xl border border-outline-variant/10">
+                        <p className="text-[10px] uppercase font-bold text-on-surface-variant mb-1">Telefone / WhatsApp</p>
+                        <a href={`tel:${selectedNegocio.contact_phone}`} className="text-sm font-bold text-primary hover:underline flex items-center gap-2">
+                          <Phone className="w-4 h-4" /> {selectedNegocio.contact_phone}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border border-outline-variant/10 rounded-3xl overflow-hidden bg-orange-50/20">
+                    {/* Description Section */}
+                    <button 
+                      onClick={() => setExpandedSections(prev => ({...prev, description: !prev.description}))}
+                      className="w-full p-5 flex items-center justify-between transition-colors hover:bg-orange-50 group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-orange-100 rounded-lg text-orange-600 group-hover:scale-110 transition-transform">
+                          <FileText className="w-4 h-4" />
+                        </div>
+                        <span className="text-sm font-bold uppercase tracking-wider">Sobre a Oportunidade</span>
+                      </div>
+                      <ChevronDown className={cn("w-5 h-5 text-outline transition-transform duration-300", expandedSections.description && "rotate-180")} />
+                    </button>
+                    {expandedSections.description && (
+                      <div className="p-5 pt-0 text-sm text-on-surface-variant leading-relaxed animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div dangerouslySetInnerHTML={{ __html: selectedNegocio.description }} className="rich-text-content prose prose-sm max-w-none" />
+                      </div>
+                    )}
+
+                    <div className="h-px bg-outline-variant/10 mx-5" />
+
+                    {/* Attachments Section */}
+                    <button 
+                      onClick={() => setExpandedSections(prev => ({...prev, attachments: !prev.attachments}))}
+                      className="w-full p-5 flex items-center justify-between transition-colors hover:bg-orange-50 group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-orange-100 rounded-lg text-orange-600 group-hover:scale-110 transition-transform">
+                          <Paperclip className="w-4 h-4" />
+                        </div>
+                        <span className="text-sm font-bold uppercase tracking-wider">Anexos</span>
+                      </div>
+                      <ChevronDown className={cn("w-5 h-5 text-outline transition-transform duration-300", expandedSections.attachments && "rotate-180")} />
+                    </button>
+                    {expandedSections.attachments && (
+                       <div className="p-5 pt-0 animate-in fade-in slide-in-from-top-2 duration-300">
+                        {selectedNegocio.attachment_url ? (
+                          <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100">
+                            {selectedNegocio.attachment_url.startsWith('data:image') ? (
+                              <div className="space-y-3">
+                                <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-inner bg-black/5">
+                                  <Image src={selectedNegocio.attachment_url} alt="Anexo" fill className="object-contain" referrerPolicy="no-referrer" />
+                                </div>
+                                <button 
+                                  onClick={() => {
+                                    const link = document.createElement('a');
+                                    link.href = selectedNegocio.attachment_url!;
+                                    link.download = `anexo-negocio-${selectedNegocio.id}`;
+                                    link.click();
+                                  }}
+                                  className="w-full py-2 bg-white text-orange-600 text-[10px] font-bold uppercase tracking-wider rounded-xl border border-orange-200 hover:bg-orange-50 transition-colors flex items-center justify-center gap-2"
+                                >
+                                  <Upload className="w-3 h-3 rotate-180" />
+                                  Baixar Imagem
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="p-2 bg-orange-100 rounded-lg">
+                                    <FileText className="w-5 h-5 text-orange-600" />
+                                  </div>
+                                  <span className="text-xs font-bold truncate max-w-[120px]">Documento</span>
+                                </div>
+                                <button 
+                                  onClick={() => {
+                                    const link = document.createElement('a');
+                                    link.href = selectedNegocio.attachment_url!;
+                                    link.download = `documento-negocio-${selectedNegocio.id}`;
+                                    link.click();
+                                  }}
+                                  className="p-2 bg-orange-600 text-white rounded-lg shadow-lg shadow-orange-600/20 hover:scale-105 transition-transform"
+                                >
+                                  <Upload className="w-3 h-3 rotate-180" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-center py-4 p-4 border border-dashed border-orange-200 rounded-2xl">
+                             <p className="text-xs text-orange-600 italic">Nenhum anexo enviado.</p>
+                          </div>
+                        )}
+                       </div>
+                    )}
+                  </div>
 
                   <section>
                     <h4 className="text-xs font-bold uppercase tracking-widest text-orange-600 mb-3">Informações de Contato</h4>
@@ -2386,15 +2782,33 @@ export default function Dashboard() {
                 ...editingJob,
                 title: formData.get('title') as string,
                 company: formData.get('company') as string,
+                email: formData.get('email') as string,
+                phone: formData.get('phone') as string,
                 location: formData.get('location') as string,
                 type: formData.get('type') as string,
                 area: formData.get('area') as string,
                 salary: formData.get('salary') as string,
-                description: formData.get('description') as string,
+                site_url: formData.get('site_url') as string,
+                description: richDescription,
                 requirements: (formData.get('requirements') as string).split('\n').filter(r => r.trim()),
+                logo_url: formData.get('logo_url') as string,
               };
               setConfirmAction({ type: 'edit', target: 'job', id: editingJob.id, payload: updatedJob });
             }} className="space-y-4">
+              <input type="hidden" name="logo_url" defaultValue={editingJob.logo_url} />
+              
+              {editingJob.logo_url && (
+                <div className="flex items-center gap-4 p-4 bg-surface-container-low rounded-2xl border border-outline-variant/20">
+                  <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-white">
+                    <Image src={editingJob.logo_url} alt="Logo Atual" fill className="object-contain p-1" referrerPolicy="no-referrer" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-on-surface">Logo da Empresa</p>
+                    <p className="text-[10px] text-on-surface-variant uppercase font-medium">Este é o logo atual desta vaga</p>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-on-surface-variant uppercase">Título da Vaga</label>
@@ -2404,6 +2818,30 @@ export default function Dashboard() {
                   <label className="text-xs font-bold text-on-surface-variant uppercase">Empresa</label>
                   <input name="company" defaultValue={editingJob.company} required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">E-mail de Contato</label>
+                  <input name="email" type="email" defaultValue={editingJob.email} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Telefone / WhatsApp</label>
+                  <input 
+                    name="phone" 
+                    defaultValue={editingJob.phone} 
+                    className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none"
+                    onInput={(e) => {
+                      const input = e.target as HTMLInputElement;
+                      input.value = maskPhone(input.value);
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-on-surface-variant uppercase">Link da Vaga / Site Externo</label>
+                <input name="site_url" defaultValue={editingJob.site_url} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none" placeholder="https://..." />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -2447,12 +2885,46 @@ export default function Dashboard() {
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-bold text-on-surface-variant uppercase">Descrição</label>
-                <textarea name="description" defaultValue={editingJob.description} rows={3} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none"></textarea>
+                <div className="bg-white rounded-xl border border-outline-variant/20 overflow-hidden">
+                  <ReactQuill 
+                    theme="snow"
+                    value={richDescription}
+                    onChange={setRichDescription}
+                    modules={quillModules}
+                    formats={quillFormats}
+                    placeholder="Descreva a vaga..."
+                    className="h-48"
+                  />
+                </div>
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-bold text-on-surface-variant uppercase">Requisitos (um por linha)</label>
                 <textarea name="requirements" defaultValue={editingJob.requirements.join('\n')} rows={3} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none"></textarea>
               </div>
+
+              {editingJob.attachment_url && (
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Anexo Atual</label>
+                  <div className="p-4 bg-surface-container rounded-2xl border border-outline-variant/10 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {editingJob.attachment_url.startsWith('data:image') ? (
+                        <div className="w-12 h-12 rounded-lg overflow-hidden border border-outline-variant/20 relative">
+                          <Image src={editingJob.attachment_url} alt="Minatura" fill className="object-cover" referrerPolicy="no-referrer" />
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <FileText className="w-6 h-6 text-primary" />
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-bold">Arquivo Anexado</p>
+                        <p className="text-[10px] text-on-surface-variant uppercase">ID: {editingJob.id}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-3 pt-4">
                 <button type="button" onClick={() => setEditingJob(null)} className="flex-1 py-3 px-4 bg-surface-container-highest text-on-surface rounded-xl font-bold hover:bg-surface-container transition-all">Cancelar</button>
                 <button type="submit" className="flex-1 py-3 px-4 bg-primary text-on-primary rounded-xl font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">Salvar Alterações</button>
@@ -2484,7 +2956,7 @@ export default function Dashboard() {
                 location: formData.get('location') as string,
                 area: formData.get('area') as string,
                 role: formData.get('role') as string,
-                summary: formData.get('summary') as string,
+                summary: richSummary,
                 skills: (formData.get('skills') as string).split(',').map(s => s.trim()).filter(s => s),
               };
               setConfirmAction({ type: 'edit', target: 'candidate', id: editingCandidate.id, payload: updatedCand });
@@ -2511,7 +2983,17 @@ export default function Dashboard() {
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-bold text-on-surface-variant uppercase">Resumo Profissional</label>
-                <textarea name="summary" defaultValue={editingCandidate.summary} rows={3} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-primary/40 outline-none"></textarea>
+                <div className="bg-white rounded-xl border border-outline-variant/20 overflow-hidden">
+                  <ReactQuill 
+                    theme="snow"
+                    value={richSummary}
+                    onChange={setRichSummary}
+                    modules={quillModules}
+                    formats={quillFormats}
+                    placeholder="Conte um pouco sobre suas experiências profissionais..."
+                    className="h-48"
+                  />
+                </div>
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-bold text-on-surface-variant uppercase">Competências (separadas por vírgula)</label>
@@ -2520,6 +3002,141 @@ export default function Dashboard() {
               <div className="flex gap-3 pt-4">
                 <button type="button" onClick={() => setEditingCandidate(null)} className="flex-1 py-3 px-4 bg-surface-container-highest text-on-surface rounded-xl font-bold hover:bg-surface-container transition-all">Cancelar</button>
                 <button type="submit" className="flex-1 py-3 px-4 bg-primary text-on-primary rounded-xl font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">Salvar Alterações</button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {editingNegocio && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-3xl p-6 lg:p-8 max-w-2xl w-full shadow-2xl border border-outline-variant/10 max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl lg:text-2xl font-bold text-orange-600 font-headline">Editar Negócio</h2>
+              <button onClick={() => setEditingNegocio(null)} className="p-2 hover:bg-orange-50 rounded-full transition-colors">
+                <XCircle className="w-6 h-6 text-on-surface-variant" />
+              </button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const updatedNegocio = {
+                ...editingNegocio,
+                title: formData.get('title') as string,
+                owner_name: formData.get('owner_name') as string,
+                location: formData.get('location') as string,
+                type: formData.get('type') as string,
+                area: formData.get('area') as string,
+                link: formData.get('link') as string,
+                description: richDescriptionNegocio,
+                contact_email: formData.get('contact_email') as string,
+                contact_phone: formData.get('contact_phone') as string,
+                contact_name: formData.get('contact_name') as string,
+                logo_url: formData.get('logo_url') as string,
+              };
+              setConfirmAction({ type: 'edit', target: 'negocio' as any, id: editingNegocio.id, payload: updatedNegocio });
+            }} className="space-y-4">
+              <input type="hidden" name="logo_url" defaultValue={editingNegocio.logo_url} />
+              
+              {editingNegocio.logo_url && (
+                <div className="flex items-center gap-4 p-4 bg-surface-container-low rounded-2xl border border-outline-variant/20">
+                  <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-white">
+                    <Image src={editingNegocio.logo_url} alt="Logo Atual" fill className="object-contain p-1" referrerPolicy="no-referrer" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-on-surface">Logo do Negócio</p>
+                    <p className="text-[10px] text-on-surface-variant uppercase font-medium">Este é o logo atual deste negócio</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Título do Negócio</label>
+                  <input name="title" defaultValue={editingNegocio.title} required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-orange-600/40 outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Empresa / Proprietário</label>
+                  <input name="owner_name" defaultValue={editingNegocio.owner_name} required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-orange-600/40 outline-none" />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-on-surface-variant uppercase">Link / Site do Negócio</label>
+                <input name="link" defaultValue={editingNegocio.link} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-orange-600/40 outline-none" placeholder="https://..." />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Localização</label>
+                  <input name="location" defaultValue={editingNegocio.location} required className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-orange-600/40 outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase">Área</label>
+                  <select name="area" defaultValue={editingNegocio.area} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-orange-600/40 outline-none">
+                    <option>Serviços</option>
+                    <option>Varejo</option>
+                    <option>Indústria</option>
+                    <option>Tecnologia</option>
+                    <option>Imobiliário</option>
+                    <option>Agronegócio</option>
+                    <option>Outros</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-on-surface-variant uppercase">Tipo de Oportunidade</label>
+                <select name="type" defaultValue={editingNegocio.type} className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:ring-2 focus:ring-orange-600/40 outline-none">
+                  <option>Parceria</option>
+                  <option>Sociedade</option>
+                  <option>Venda Total</option>
+                  <option>Venda Parcial</option>
+                  <option>Franquia</option>
+                  <option>Investimento</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-on-surface-variant uppercase">Descrição</label>
+                <div className="bg-white rounded-xl border border-outline-variant/20 overflow-hidden">
+                  <ReactQuill 
+                    theme="snow"
+                    value={richDescriptionNegocio}
+                    onChange={setRichDescriptionNegocio}
+                    modules={quillModules}
+                    formats={quillFormats}
+                    placeholder="Descreva sobre a oportunidade de negócio..."
+                    className="h-48"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-orange-50/50 p-4 rounded-2xl border border-orange-100 space-y-3">
+                <p className="text-xs font-black uppercase tracking-widest text-orange-600">Informações de Contato</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-on-surface-variant uppercase font-mono">Email</label>
+                    <input name="contact_email" defaultValue={editingNegocio.contact_email} className="w-full p-2 rounded-lg bg-white border border-orange-200 outline-none text-sm" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-on-surface-variant uppercase font-mono">Telefone</label>
+                    <input name="contact_phone" defaultValue={editingNegocio.contact_phone} className="w-full p-2 rounded-lg bg-white border border-orange-200 outline-none text-sm" onInput={(e) => (e.target as HTMLInputElement).value = maskPhone((e.target as HTMLInputElement).value)} />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-on-surface-variant uppercase font-mono">Nome do Contato</label>
+                  <input name="contact_name" defaultValue={editingNegocio.contact_name} className="w-full p-2 rounded-lg bg-white border border-orange-200 outline-none text-sm" />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button type="button" onClick={() => setEditingNegocio(null)} className="flex-1 py-3 px-4 bg-surface-container-highest text-on-surface rounded-xl font-bold hover:bg-surface-container transition-all">Cancelar</button>
+                <button type="submit" className="flex-1 py-3 px-4 bg-orange-600 text-white rounded-xl font-bold shadow-lg shadow-orange-600/20 hover:scale-[1.02] transition-all">Salvar Alterações</button>
               </div>
             </form>
           </motion.div>
@@ -2904,6 +3521,7 @@ export default function Dashboard() {
                     if (confirmAction.type === 'approve') approveNegocio(confirmAction.id);
                     else if (confirmAction.type === 'reject') rejectNegocio(confirmAction.id);
                     else if (confirmAction.type === 'delete') deleteNegocio(confirmAction.id);
+                    else if (confirmAction.type === 'edit') updateNegocio(confirmAction.payload);
                   } else if (confirmAction.target === 'noticia') {
                     if (confirmAction.type === 'delete') deleteNoticia(confirmAction.id);
                   }

@@ -25,10 +25,14 @@ import {
   Share2,
   Verified,
   FileText,
-  User
+  User,
+  Mail,
+  Phone,
+  Paperclip,
+  Globe
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '@/lib/utils';
+import { cn, ensureExternalLink, stripHtml } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -63,6 +67,8 @@ const CandidateAvatar = ({ src, name, className = "object-cover" }: { src?: stri
 interface Candidate {
   id: string;
   name: string;
+  email: string;
+  phone: string;
   location: string;
   area: string;
   status: 'pending' | 'active' | 'rejected';
@@ -82,6 +88,7 @@ export default function TalentosPage() {
   const [searchTerm, setSearchTerm] = useState(searchParams?.get('search') || '');
   const [selectedCategory, setSelectedCategory] = useState(searchParams?.get('category') || 'Todos os Talentos');
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const itemsPerPage = 6;
 
   const categories = [
@@ -265,7 +272,7 @@ export default function TalentosPage() {
                       </div>
                       <h3 className={cn("font-extrabold text-[#1b1c1c] mb-1 font-headline", idx === 0 ? "text-3xl" : "text-xl")}>{cand.name}</h3>
                       <p className="text-[#00628c] font-bold mb-4">{cand.role}</p>
-                      <p className="text-[#3e4850] leading-relaxed mb-6 text-sm line-clamp-3">{cand.summary}</p>
+                      <p className="text-[#3e4850] leading-relaxed mb-6 text-sm line-clamp-3">{stripHtml(cand.summary)}</p>
                       <div className="flex flex-wrap gap-2 mb-8">
                         {cand.skills.slice(0, idx === 0 ? 6 : 3).map(skill => (
                           <span key={skill} className="px-3 py-1 bg-[#f0eded] rounded-lg text-[10px] font-bold text-[#3e4850] uppercase tracking-wider">{skill}</span>
@@ -276,7 +283,10 @@ export default function TalentosPage() {
                           <MapPin className="w-3.5 h-3.5 text-[#00628c]" />
                           {cand.location}
                         </div>
-                        <button className="text-[#00628c] font-black text-sm hover:underline flex items-center gap-2">
+                        <button 
+                          onClick={() => setSelectedCandidate(cand)}
+                          className="text-[#00628c] font-black text-sm hover:underline flex items-center gap-2"
+                        >
                           Ver Perfil Completo <ExternalLink className="w-4 h-4" />
                         </button>
                       </div>
@@ -353,6 +363,126 @@ export default function TalentosPage() {
           </div>
         </div>
       </main>
+
+      <AnimatePresence>
+        {selectedCandidate && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedCandidate(null)}
+              className="absolute inset-0 bg-[#3e4850]/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl bg-white rounded-[2rem] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+            >
+              <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar">
+                <button 
+                  onClick={() => setSelectedCandidate(null)}
+                  className="absolute top-6 right-6 p-2 bg-[#f6f3f2] rounded-full text-[#3e4850] hover:bg-[#00628c] hover:text-white transition-all z-10"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <div className="flex flex-col md:flex-row items-center md:items-start gap-8 mb-8">
+                  <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-[2.5rem] overflow-hidden shadow-xl shrink-0">
+                    <CandidateAvatar src={selectedCandidate.image} name={selectedCandidate.name} />
+                  </div>
+                  <div className="text-center md:text-left flex-1">
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-3">
+                      <span className="px-3 py-1 rounded-full bg-[#bff444] text-[#141f00] text-[10px] font-black uppercase tracking-widest">
+                        {selectedCandidate.area}
+                      </span>
+                      {selectedCandidate.verified && (
+                        <span className="flex items-center gap-1 text-[#00628c] text-[10px] font-black uppercase tracking-widest bg-[#c8e6ff] px-3 py-1 rounded-full">
+                          <Verified className="w-3 h-3" /> Verificado
+                        </span>
+                      )}
+                    </div>
+                    <h2 className="text-3xl font-black text-[#00628c] font-headline mb-1 tracking-tight">{selectedCandidate.name}</h2>
+                    <p className="text-[#964900] font-bold text-lg mb-4">{selectedCandidate.role}</p>
+                    <div className="flex flex-wrap justify-center md:justify-start gap-4">
+                      <div className="flex items-center gap-1.5 text-[#3e4850] text-sm font-bold bg-[#f6f3f2] px-4 py-2 rounded-xl">
+                        <MapPin className="w-4 h-4 text-[#00628c]" /> {selectedCandidate.location}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-8">
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#00628c] mb-4">Resumo Profissional</h3>
+                    <div 
+                      dangerouslySetInnerHTML={{ __html: selectedCandidate.summary }} 
+                      className="text-[#3e4850] leading-relaxed text-sm md:text-base rich-text-content"
+                    />
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#00628c] mb-4">Habilidades</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedCandidate.skills.map((skill) => (
+                        <span key={skill} className="px-4 py-2 bg-[#f6f3f2] rounded-xl text-xs font-bold text-[#3e4850] uppercase tracking-wider border border-[#bec8d1]/10">
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {selectedCandidate.cv_url && (
+                    <div className="pt-6 border-t border-[#f6f3f2]">
+                      <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#00628c] mb-4">Currículo Anexo</h3>
+                      <a 
+                        href={selectedCandidate.cv_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        download
+                        className="flex items-center gap-4 p-4 bg-[#f6f3f2] rounded-2xl hover:bg-[#c8e6ff]/20 transition-all border border-transparent hover:border-[#00628c]/10"
+                      >
+                        <div className="w-12 h-12 rounded-xl bg-[#c8e6ff] flex items-center justify-center text-[#00628c]">
+                          <Paperclip className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-[#00628c] uppercase tracking-wider">Clique para saber mais</p>
+                          <p className="text-[10px] text-[#6f7881]">Clique para baixar o arquivo anexado</p>
+                        </div>
+                      </a>
+                    </div>
+                  )}
+
+                  <div className="p-8 bg-[#00628c] rounded-3xl text-white shadow-xl shadow-[#00628c]/20">
+                    <h4 className="text-xs font-black uppercase tracking-widest mb-6 opacity-70">Entrar em Contato</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-2">
+                        <p className="text-[10px] uppercase font-black opacity-50 tracking-widest">E-mail</p>
+                        <a href={`mailto:${selectedCandidate.email}`} className="text-lg font-bold hover:underline flex items-center gap-3">
+                          <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
+                            <Mail className="w-5 h-5 text-white" />
+                          </div>
+                          {selectedCandidate.email}
+                        </a>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-[10px] uppercase font-black opacity-50 tracking-widest">Telefone / WhatsApp</p>
+                        <a href={`https://wa.me/${selectedCandidate.phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-lg font-bold hover:underline flex items-center gap-3">
+                          <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
+                            <Phone className="w-5 h-5 text-white" />
+                          </div>
+                          {selectedCandidate.phone}
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Footer */}
       <footer className="bg-[#f0eded] py-16">

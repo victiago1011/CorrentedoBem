@@ -21,11 +21,12 @@ import {
   Globe,
   Users,
   Trophy,
-  Award
+  Award,
+  Paperclip
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/lib/supabase';
-import { cn } from '@/lib/utils';
+import { cn, ensureExternalLink, stripHtml } from '@/lib/utils';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Navbar } from '@/app/components/Navbar';
@@ -41,6 +42,8 @@ interface Negocio {
   contact_email: string;
   contact_phone: string;
   type: string;
+  logo_url?: string;
+  attachment_url?: string;
   status: 'pending' | 'active' | 'rejected' | 'closed';
   created_at?: string;
 }
@@ -236,8 +239,12 @@ function NegociosContent() {
                     className="bg-white p-6 rounded-3xl border border-[#bec8d1]/10 hover:border-[#00628c]/20 transition-all shadow-sm hover:shadow-xl group"
                   >
                     <div className="flex justify-between items-start mb-6">
-                      <div className="w-14 h-14 bg-[#f6f3f2] rounded-2xl flex items-center justify-center text-[#00628c] group-hover:bg-[#00628c] group-hover:text-white transition-colors">
-                        <TrendingUp className="w-7 h-7" />
+                      <div className="w-14 h-14 bg-[#f6f3f2] rounded-2xl flex items-center justify-center text-[#00628c] group-hover:bg-[#00628c] group-hover:text-white transition-colors relative overflow-hidden">
+                        {item.logo_url ? (
+                          <Image src={item.logo_url} alt={item.owner_name} fill className="object-contain p-2" referrerPolicy="no-referrer" />
+                        ) : (
+                          <TrendingUp className="w-7 h-7" />
+                        )}
                       </div>
                       <span className="px-3 py-1 bg-[#bff444] text-[#141f00] text-[10px] font-black uppercase tracking-wider rounded-full">
                         {item.type || 'Oportunidade'}
@@ -253,7 +260,7 @@ function NegociosContent() {
                       </span>
                     </div>
                     <p className="text-[#3e4850] text-sm line-clamp-3 mb-6 leading-relaxed">
-                      {item.description}
+                      {stripHtml(item.description)}
                     </p>
                     <button 
                       onClick={() => setSelectedNegocio(item)}
@@ -339,8 +346,12 @@ function NegociosContent() {
                 </button>
 
                 <div className="flex items-center gap-4 mb-8">
-                  <div className="w-16 h-16 bg-[#c8e6ff] rounded-2xl flex items-center justify-center text-[#00628c]">
-                    <TrendingUp className="w-8 h-8" />
+                  <div className="w-16 h-16 bg-[#c8e6ff] rounded-2xl flex items-center justify-center text-[#00628c] relative overflow-hidden">
+                    {selectedNegocio.logo_url ? (
+                      <Image src={selectedNegocio.logo_url} alt={selectedNegocio.owner_name} fill className="object-contain p-2" referrerPolicy="no-referrer" />
+                    ) : (
+                      <TrendingUp className="w-8 h-8" />
+                    )}
                   </div>
                   <div>
                     <h2 className="text-2xl font-black text-[#00628c] font-headline tracking-tight">{selectedNegocio.title}</h2>
@@ -372,19 +383,43 @@ function NegociosContent() {
                 <div className="space-y-8">
                   <div>
                     <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#00628c] mb-4">Descrição da Oportunidade</h3>
-                    <p className="text-[#3e4850] leading-relaxed whitespace-pre-wrap mb-6">{selectedNegocio.description}</p>
+                    <div 
+                      dangerouslySetInnerHTML={{ __html: selectedNegocio.description }} 
+                      className="text-[#3e4850] leading-relaxed text-sm md:text-base mb-6 rich-text-content prose prose-sm max-w-none"
+                    />
                     
                     {selectedNegocio.link && (
                       <div className="pt-4 border-t border-[#bec8d1]/20">
                         <h4 className="text-xs font-black uppercase tracking-widest text-[#6f7881] mb-2">Link Externo</h4>
                         <a 
-                          href={selectedNegocio.link.startsWith('http') ? selectedNegocio.link : `https://${selectedNegocio.link}`}
+                          href={ensureExternalLink(selectedNegocio.link)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-2 text-[#00628c] hover:underline font-bold"
                         >
                           <Globe className="w-4 h-4" />
                           Visitar Site / Perfil
+                        </a>
+                      </div>
+                    )}
+
+                    {selectedNegocio.attachment_url && (
+                      <div className="pt-4 border-t border-[#bec8d1]/20">
+                        <h4 className="text-xs font-black uppercase tracking-widest text-[#6f7881] mb-2">Anexo / Arquivo</h4>
+                        <a 
+                          href={selectedNegocio.attachment_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          download
+                          className="flex items-center gap-3 p-4 bg-[#f6f3f2] rounded-2xl hover:bg-[#c8e6ff]/20 transition-all border border-transparent hover:border-[#00628c]/10"
+                        >
+                          <div className="w-10 h-10 rounded-xl bg-[#c8e6ff] flex items-center justify-center text-[#00628c]">
+                            <Paperclip className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-black text-[#00628c] uppercase tracking-wider">Clique para saber mais</p>
+                            <p className="text-[10px] text-[#6f7881]">Clique para baixar o anexo</p>
+                          </div>
                         </a>
                       </div>
                     )}

@@ -12,6 +12,7 @@ import {
   Tag,
   Bookmark,
   Handshake,
+  Paperclip
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import Image from 'next/image';
@@ -28,6 +29,7 @@ interface Noticia {
   content: string;
   excerpt?: string;
   image_url?: string;
+  attachment_url?: string;
   author?: string;
   category?: string;
   status: string;
@@ -176,6 +178,27 @@ export default function NoticiaDetailPage() {
                 className="prose prose-2xl prose-slate max-w-none text-[#3e4850] leading-[1.8] font-medium prose-headings:text-[#1a2b3b] prose-headings:font-black prose-headings:tracking-tight prose-p:mb-8 prose-li:mb-2 prose-a:text-[#00628c] prose-a:font-bold prose-strong:text-[#1a2b3b] selection:bg-[#00628c]/10 prose-img:rounded-[2rem] prose-img:shadow-2xl news-content"
                 dangerouslySetInnerHTML={{ __html: noticia.content }}
               />
+
+              {noticia.attachment_url && (
+                <div className="mt-16 p-8 bg-[#f6f3f2] rounded-[2.5rem] border border-[#bec8d1]/20">
+                  <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#00628c] mb-6">Documento em Anexo</h3>
+                  <a 
+                    href={noticia.attachment_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    download
+                    className="flex items-center gap-4 p-5 bg-white rounded-2xl hover:bg-[#c8e6ff]/20 transition-all border border-transparent hover:border-[#00628c]/10 group shadow-sm"
+                  >
+                    <div className="w-14 h-14 rounded-xl bg-[#c8e6ff] flex items-center justify-center text-[#00628c] group-hover:scale-110 transition-transform">
+                      <Paperclip className="w-7 h-7" />
+                    </div>
+                    <div>
+                      <p className="text-base font-black text-[#00628c] uppercase tracking-wider">Clique para saber mais</p>
+                      <p className="text-xs text-[#6f7881]">Clique para baixar o arquivo relacionado a esta notícia</p>
+                    </div>
+                  </a>
+                </div>
+              )}
 
               <style jsx global>{`
                 .news-content p { margin-bottom: 2rem; }

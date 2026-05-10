@@ -16,8 +16,12 @@ import {
   Mail,
   Phone,
   FileText,
-  Upload
+  Upload,
+  Globe
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
+const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
+import 'react-quill-new/dist/quill.snow.css';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
@@ -44,6 +48,25 @@ export default function CadastrarTalentoPage() {
   const [resumeName, setResumeName] = useState('');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const resumeInputRef = React.useRef<HTMLInputElement>(null);
+
+  const quillModules = {
+    toolbar: [
+      [{ 'header': [1, 2, 3, false] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'color': [] }, { 'background': [] }],
+      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+      ['link'],
+      ['clean']
+    ],
+  };
+
+  const quillFormats = [
+    'header',
+    'bold', 'italic', 'underline', 'strike',
+    'color', 'background',
+    'list',
+    'link'
+  ];
 
   const addSkill = () => {
     if (skillInput.trim()) {
@@ -306,19 +329,41 @@ export default function CadastrarTalentoPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-4">
               <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Resumo Profissional</label>
-              <div className="relative">
-                <AlignLeft className="absolute left-4 top-4 w-5 h-5 text-[#6f7881]" />
-                <textarea 
-                  rows={4}
-                  placeholder="Conte um pouco sobre suas experiências..." 
-                  className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all resize-none text-[#1b1c1c]"
+              <div className="bg-[#f6f3f2] rounded-2xl overflow-hidden border border-transparent focus-within:ring-2 focus-within:ring-[#00628c]/40 transition-all">
+                <ReactQuill 
+                  theme="snow"
                   value={formData.summary}
-                  onChange={e => setFormData({...formData, summary: e.target.value})}
+                  onChange={(val) => setFormData(prev => ({ ...prev, summary: val }))}
+                  modules={quillModules}
+                  formats={quillFormats}
+                  placeholder="Conte um pouco sobre suas experiências profissionais..."
+                  className="bg-white min-h-[150px]"
                 />
               </div>
             </div>
+
+            <style jsx global>{`
+              .ql-container {
+                border-bottom-left-radius: 1rem;
+                border-bottom-right-radius: 1rem;
+                font-family: inherit;
+                font-size: 1rem;
+              }
+              .ql-toolbar {
+                border-top-left-radius: 1rem;
+                border-top-right-radius: 1rem;
+                border-color: #f6f3f2 !important;
+                background: #fcf9f8;
+              }
+              .ql-container.ql-snow {
+                border-color: #f6f3f2 !important;
+              }
+              .ql-editor {
+                min-height: 150px;
+              }
+            `}</style>
 
             <div className="space-y-4">
               <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Currículo (Opcional)</label>

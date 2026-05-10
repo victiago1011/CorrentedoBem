@@ -19,11 +19,16 @@ import {
   Trophy,
   Award,
   Upload,
-  FileText
+  FileText,
+  Globe
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
+const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
+import 'react-quill-new/dist/quill.snow.css';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
+import Image from 'next/image';
 import { maskPhone } from '@/lib/utils';
 
 export default function CadastrarNegocioPage() {
@@ -41,10 +46,42 @@ export default function CadastrarNegocioPage() {
     type: 'Parceria',
     area: 'Serviços',
     description: '',
-    attachment_url: ''
+    attachment_url: '',
+    logo_url: ''
   });
   const [attachmentName, setAttachmentName] = useState('');
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const attachmentInputRef = React.useRef<HTMLInputElement>(null);
+
+  const quillModules = {
+    toolbar: [
+      [{ 'header': [1, 2, 3, false] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'color': [] }, { 'background': [] }],
+      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+      ['link'],
+      ['clean']
+    ],
+  };
+
+  const quillFormats = [
+    'header',
+    'bold', 'italic', 'underline', 'strike',
+    'color', 'background',
+    'list',
+    'link'
+  ];
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, logo_url: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -82,6 +119,7 @@ export default function CadastrarNegocioPage() {
           area: formData.area || null,
           description: formData.description || null,
           attachment_url: formData.attachment_url || null,
+          logo_url: formData.logo_url || null,
           status: 'pending'
         }]);
 
@@ -145,6 +183,56 @@ export default function CadastrarNegocioPage() {
           </header>
 
           <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Logo Upload Section */}
+            <div className="flex flex-col items-center mb-10">
+              <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] mb-4">Logo do Negócio</label>
+              <div className="relative group">
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-32 h-32 rounded-[2.5rem] bg-[#f6f3f2] overflow-hidden border-2 border-dashed border-[#bec8d1] flex items-center justify-center group-hover:border-[#00628c] transition-colors relative shadow-inner cursor-pointer"
+                >
+                  {formData.logo_url ? (
+                    <Image 
+                      src={formData.logo_url} 
+                      alt="Logo" 
+                      fill
+                      className="object-contain p-4"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-[#6f7881]">
+                      <Upload className="w-8 h-8" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest">Upload Logo</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white font-bold text-[10px] uppercase tracking-widest text-center px-4">
+                    {formData.logo_url ? 'Trocar Logo' : 'Adicionar Logo'}
+                  </div>
+                </div>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept="image/*" 
+                  onChange={handleLogoChange}
+                />
+                {formData.logo_url && (
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFormData(prev => ({ ...prev, logo_url: '' }));
+                    }}
+                    className="absolute -bottom-2 -right-2 w-10 h-10 bg-red-100 shadow-xl rounded-full flex items-center justify-center text-red-600 hover:bg-red-200 active:scale-95 transition-all border border-red-200"
+                    title="Remover logo"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+              <p className="text-[10px] text-[#6f7881] mt-3 font-medium italic">Opcional: Uma logo ajuda a destacar seu negócio.</p>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-2">
                 <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Título da Oportunidade *</label>
@@ -279,19 +367,41 @@ export default function CadastrarNegocioPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-4">
               <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Descrição Detalhada</label>
-              <div className="relative">
-                <AlignLeft className="absolute left-4 top-4 w-5 h-5 text-[#6f7881]" />
-                <textarea 
-                  rows={6}
-                  placeholder="Descreva o que sua empresa faz, o que está buscando e quais os benefícios da parceria..." 
-                  className="w-full pl-12 pr-4 py-4 bg-[#f6f3f2] border-none rounded-2xl focus:ring-2 focus:ring-[#00628c]/40 transition-all resize-none text-[#1b1c1c]"
+              <div className="bg-[#f6f3f2] rounded-2xl overflow-hidden border border-transparent focus-within:ring-2 focus-within:ring-[#00628c]/40 transition-all">
+                <ReactQuill 
+                  theme="snow"
                   value={formData.description}
-                  onChange={e => setFormData({...formData, description: e.target.value})}
+                  onChange={(val) => setFormData(prev => ({ ...prev, description: val }))}
+                  modules={quillModules}
+                  formats={quillFormats}
+                  placeholder="Descreva o que sua empresa faz, o que está buscando e quais os benefícios da parceria..."
+                  className="bg-white min-h-[200px]"
                 />
               </div>
             </div>
+
+            <style jsx global>{`
+              .ql-container {
+                border-bottom-left-radius: 1rem;
+                border-bottom-right-radius: 1rem;
+                font-family: inherit;
+                font-size: 1rem;
+              }
+              .ql-toolbar {
+                border-top-left-radius: 1rem;
+                border-top-right-radius: 1rem;
+                border-color: #f6f3f2 !important;
+                background: #fcf9f8;
+              }
+              .ql-container.ql-snow {
+                border-color: #f6f3f2 !important;
+              }
+              .ql-editor {
+                min-height: 200px;
+              }
+            `}</style>
 
             <div className="space-y-4">
               <label className="text-xs font-black uppercase tracking-widest text-[#3e4850] ml-1">Anexo / Arquivo (Opcional)</label>

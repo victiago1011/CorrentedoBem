@@ -20,11 +20,17 @@ import {
   Hammer,
   Building2,
   Menu,
-  Handshake
+  Handshake,
+  DollarSign,
+  Mail,
+  Phone,
+  Globe,
+  ExternalLink,
+  Paperclip
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/lib/supabase';
-import { cn } from '@/lib/utils';
+import { cn, ensureExternalLink, stripHtml } from '@/lib/utils';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Navbar } from '@/app/components/Navbar';
@@ -40,6 +46,11 @@ interface Job {
   salary: string;
   description: string;
   requirements: string[];
+  logo_url?: string;
+  site_url?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  attachment_url?: string;
   verified?: boolean;
   created_at?: string;
 }
@@ -271,8 +282,12 @@ function VagasContent() {
                     className="bg-white p-6 rounded-3xl border border-[#bec8d1]/10 hover:border-[#00628c]/20 transition-all shadow-sm hover:shadow-xl group"
                   >
                     <div className="flex justify-between items-start mb-6">
-                      <div className="w-14 h-14 bg-[#f6f3f2] rounded-2xl flex items-center justify-center text-[#00628c] group-hover:bg-[#00628c] group-hover:text-white transition-colors">
-                        <Briefcase className="w-7 h-7" />
+                      <div className="w-14 h-14 bg-[#f6f3f2] rounded-2xl flex items-center justify-center text-[#00628c] group-hover:bg-[#00628c] group-hover:text-white transition-colors relative overflow-hidden">
+                        {job.logo_url ? (
+                          <Image src={job.logo_url} alt={job.company} fill className="object-contain p-2" referrerPolicy="no-referrer" />
+                        ) : (
+                          <Briefcase className="w-7 h-7" />
+                        )}
                       </div>
                       <span className="px-3 py-1 bg-[#bff444] text-[#141f00] text-[10px] font-black uppercase tracking-wider rounded-full">
                         {job.type}
@@ -395,8 +410,12 @@ function VagasContent() {
                 </button>
 
                 <div className="flex items-center gap-4 mb-8">
-                  <div className="w-16 h-16 bg-[#c8e6ff] rounded-2xl flex items-center justify-center text-[#00628c]">
-                    <Briefcase className="w-8 h-8" />
+                  <div className="w-16 h-16 bg-[#c8e6ff] rounded-2xl flex items-center justify-center text-[#00628c] relative overflow-hidden">
+                    {selectedJob.logo_url ? (
+                      <Image src={selectedJob.logo_url} alt={selectedJob.company} fill className="object-contain p-2" referrerPolicy="no-referrer" />
+                    ) : (
+                      <Briefcase className="w-8 h-8" />
+                    )}
                   </div>
                   <div>
                     <h2 className="text-2xl font-black text-[#00628c] font-headline tracking-tight">{selectedJob.title}</h2>
@@ -404,31 +423,49 @@ function VagasContent() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-10">
-                  <div className="p-4 bg-[#f6f3f2] rounded-2xl">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-[#6f7881] mb-1">Localização</p>
-                    <p className="text-sm font-bold text-[#3e4850] flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-[#00628c]" /> {selectedJob.location}
-                    </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-10">
+                    <div className="p-4 bg-[#f6f3f2] rounded-2xl">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#6f7881] mb-1">Localização</p>
+                      <p className="text-sm font-bold text-[#3e4850] flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-[#00628c]" /> {selectedJob.location}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-[#f6f3f2] rounded-2xl">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#6f7881] mb-1">Tipo</p>
+                      <p className="text-sm font-bold text-[#3e4850] flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-[#00628c]" /> {selectedJob.type}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-[#f6f3f2] rounded-2xl">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#6f7881] mb-1">Salário</p>
+                      <p className="text-sm font-bold text-[#3e4850] flex items-center gap-1.5">
+                        <DollarSign className="w-3.5 h-3.5 text-[#00628c]" /> {selectedJob.salary || 'A combinar'}
+                      </p>
+                    </div>
+                    {selectedJob.site_url && (
+                      <div className="p-4 bg-[#c8e6ff]/30 rounded-2xl border border-[#00628c]/10 md:col-span-2">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-[#00628c] mb-1">Link da Vaga / Empresa</p>
+                        <a 
+                          href={ensureExternalLink(selectedJob.site_url)} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-sm font-bold text-[#00628c] hover:underline flex items-center gap-2 truncate"
+                        >
+                          <Globe className="w-3.5 h-3.5" />
+                          {selectedJob.site_url}
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    )}
                   </div>
-                  <div className="p-4 bg-[#f6f3f2] rounded-2xl">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-[#6f7881] mb-1">Tipo</p>
-                    <p className="text-sm font-bold text-[#3e4850] flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-[#00628c]" /> {selectedJob.type}
-                    </p>
-                  </div>
-                  <div className="p-4 bg-[#f6f3f2] rounded-2xl">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-[#6f7881] mb-1">Salário</p>
-                    <p className="text-sm font-bold text-[#3e4850] flex items-center gap-1.5">
-                      <CreditCard className="w-3.5 h-3.5 text-[#00628c]" /> {selectedJob.salary || 'A combinar'}
-                    </p>
-                  </div>
-                </div>
 
                 <div className="space-y-8">
                   <div>
                     <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#00628c] mb-4">Descrição da Vaga</h3>
-                    <p className="text-[#3e4850] leading-relaxed whitespace-pre-wrap">{selectedJob.description}</p>
+                    <div 
+                      dangerouslySetInnerHTML={{ __html: selectedJob.description }} 
+                      className="text-[#3e4850] leading-relaxed text-sm md:text-base rich-text-content prose prose-sm max-w-none"
+                    />
                   </div>
 
                   {selectedJob.requirements && selectedJob.requirements.length > 0 && (
@@ -442,6 +479,51 @@ function VagasContent() {
                           </li>
                         ))}
                       </ul>
+                    </div>
+                  )}
+
+                  {selectedJob.attachment_url && (
+                    <div className="pt-6 border-t border-[#f6f3f2]">
+                      <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#00628c] mb-4">Anexo / Arquivo</h3>
+                      <a 
+                        href={selectedJob.attachment_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        download
+                        className="flex items-center gap-3 p-4 bg-[#f6f3f2] rounded-2xl hover:bg-[#c8e6ff]/20 transition-all border border-transparent hover:border-[#00628c]/10"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-[#c8e6ff] flex items-center justify-center text-[#00628c]">
+                          <Paperclip className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-[#00628c] uppercase tracking-wider">Clique para saber mais</p>
+                          <p className="text-[10px] text-[#6f7881]">Clique para baixar o link do anexo</p>
+                        </div>
+                      </a>
+                    </div>
+                  )}
+
+                  {(selectedJob.contact_email || selectedJob.contact_phone || (selectedJob as any).email || (selectedJob as any).phone) && (
+                    <div className="p-6 bg-[#00628c] rounded-3xl text-white">
+                      <h4 className="text-xs font-black uppercase tracking-widest mb-4 opacity-70">Contato</h4>
+                      <div className="flex flex-col sm:flex-row gap-6">
+                        {(selectedJob.contact_email || (selectedJob as any).email) && (
+                          <div className="space-y-1">
+                            <p className="text-[10px] uppercase font-bold opacity-50">E-mail</p>
+                            <a href={`mailto:${selectedJob.contact_email || (selectedJob as any).email}`} className="font-bold hover:underline flex items-center gap-2">
+                              <Mail className="w-4 h-4" /> {selectedJob.contact_email || (selectedJob as any).email}
+                            </a>
+                          </div>
+                        )}
+                        {(selectedJob.contact_phone || (selectedJob as any).phone) && (
+                          <div className="space-y-1">
+                            <p className="text-[10px] uppercase font-bold opacity-50">Telefone</p>
+                            <a href={`tel:${selectedJob.contact_phone || (selectedJob as any).phone}`} className="font-bold hover:underline flex items-center gap-2">
+                              <Phone className="w-4 h-4" /> {selectedJob.contact_phone || (selectedJob as any).phone}
+                            </a>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

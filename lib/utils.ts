@@ -36,3 +36,29 @@ export function maskCurrency(value: string) {
   
   return amount
 }
+
+export function ensureExternalLink(url: string) {
+  if (!url) return "";
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  return `https://${url}`;
+}
+
+export function stripHtml(html: string) {
+  if (!html) return "";
+  return html
+    .replace(/<p>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]*>?/gm, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&nbsp/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n\s*\n/g, "\n\n")
+    .trim();
+}

@@ -21,13 +21,18 @@ import {
   Briefcase,
   Clock,
   Check,
-  User
+  User,
+  Mail,
+  Phone,
+  Paperclip,
+  Verified,
+  ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { cn } from '@/lib/utils';
+import { cn, ensureExternalLink, stripHtml } from '@/lib/utils';
 import { Navbar } from '@/app/components/Navbar';
 
 // Helper component for candidate images with error fallback
@@ -68,12 +73,19 @@ interface Job {
   salary: string;
   description: string;
   requirements: string[];
+  logo_url?: string;
+  site_url?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  attachment_url?: string;
   created_at?: string;
 }
 
 interface Candidate {
   id: string;
   name: string;
+  email: string;
+  phone: string;
   location: string;
   area: string;
   status: 'pending' | 'active' | 'rejected';
@@ -95,6 +107,7 @@ export default function LandingPage() {
   const [featuredCandidates, setFeaturedCandidates] = useState<Candidate[]>([]);
   const [isLoadingCandidates, setIsLoadingCandidates] = useState(true);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
 
   useEffect(() => {
     async function fetchFeaturedData() {
@@ -253,14 +266,18 @@ export default function LandingPage() {
                     )}
                   >
                     <div className="flex justify-between items-start mb-6">
-                      <div className="w-16 h-16 rounded-2xl bg-[#c8e6ff] flex items-center justify-center">
-                        <Briefcase className="w-8 h-8 text-[#00628c]" />
+                      <div className="w-16 h-16 rounded-2xl bg-[#c8e6ff] flex items-center justify-center relative overflow-hidden">
+                        {job.logo_url ? (
+                          <Image src={job.logo_url} alt={job.company} fill className="object-contain p-2" referrerPolicy="no-referrer" />
+                        ) : (
+                          <Briefcase className="w-8 h-8 text-[#00628c]" />
+                        )}
                       </div>
                       {idx === 0 && <span className="px-3 py-1 bg-[#bff444] text-[#141f00] text-xs font-bold rounded-full uppercase tracking-wider">Novo</span>}
                     </div>
                     <h3 className="text-xl lg:text-2xl font-bold text-[#1b1c1c] mb-2 font-headline line-clamp-1">{job.title}</h3>
                     <p className="text-[#964900] font-bold text-sm mb-4">{job.company}</p>
-                    <p className="text-[#3e4850] mb-6 leading-relaxed line-clamp-3 text-sm flex-grow">{job.description}</p>
+                    <p className="text-[#3e4850] mb-6 leading-relaxed line-clamp-3 text-sm flex-grow">{stripHtml(job.description)}</p>
                     <div className="flex items-center gap-4 text-xs text-[#3e4850] font-medium mb-8">
                       <span className="flex items-center gap-1"><MapPin className="w-4 h-4 text-[#00628c]" /> {job.location}</span>
                       {job.salary && <span className="flex items-center gap-1"><DollarSign className="w-4 h-4 text-[#00628c]" /> {job.salary}</span>}
@@ -308,8 +325,12 @@ export default function LandingPage() {
                   </button>
 
                   <div className="flex items-center gap-4 mb-8">
-                    <div className="w-16 h-16 bg-[#c8e6ff] rounded-2xl flex items-center justify-center text-[#00628c]">
-                      <Briefcase className="w-8 h-8" />
+                    <div className="w-16 h-16 bg-[#c8e6ff] rounded-2xl flex items-center justify-center text-[#00628c] relative overflow-hidden">
+                      {selectedJob.logo_url ? (
+                        <Image src={selectedJob.logo_url} alt={selectedJob.company} fill className="object-contain p-2" referrerPolicy="no-referrer" />
+                      ) : (
+                        <Briefcase className="w-8 h-8" />
+                      )}
                     </div>
                     <div>
                       <h2 className="text-2xl font-black text-[#00628c] font-headline tracking-tight">{selectedJob.title}</h2>
@@ -317,7 +338,7 @@ export default function LandingPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-10">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-10">
                     <div className="p-4 bg-[#f6f3f2] rounded-2xl">
                       <p className="text-[10px] font-black uppercase tracking-widest text-[#6f7881] mb-1">Localização</p>
                       <p className="text-sm font-bold text-[#3e4850] flex items-center gap-1.5">
@@ -336,12 +357,30 @@ export default function LandingPage() {
                         <DollarSign className="w-3.5 h-3.5 text-[#00628c]" /> {selectedJob.salary || 'A combinar'}
                       </p>
                     </div>
+                    {selectedJob.site_url && (
+                      <div className="p-4 bg-[#c8e6ff]/30 rounded-2xl border border-[#00628c]/10 md:col-span-2">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-[#00628c] mb-1">Link da Vaga / Empresa</p>
+                        <a 
+                          href={ensureExternalLink(selectedJob.site_url)} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-sm font-bold text-[#00628c] hover:underline flex items-center gap-2 truncate"
+                        >
+                          <Globe className="w-3.5 h-3.5" />
+                          {selectedJob.site_url}
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-8">
                     <div>
                       <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#00628c] mb-4">Descrição da Vaga</h3>
-                      <p className="text-[#3e4850] leading-relaxed whitespace-pre-wrap text-sm md:text-base">{selectedJob.description}</p>
+                      <div 
+                        dangerouslySetInnerHTML={{ __html: selectedJob.description }} 
+                        className="text-[#3e4850] leading-relaxed text-sm md:text-base rich-text-content prose prose-sm max-w-none"
+                      />
                     </div>
 
                     {selectedJob.requirements && selectedJob.requirements.length > 0 && (
@@ -357,6 +396,51 @@ export default function LandingPage() {
                         </ul>
                       </div>
                     )}
+
+                    {selectedJob.attachment_url && (
+                      <div className="pt-6 border-t border-[#f6f3f2]">
+                        <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#00628c] mb-4">Anexo / Arquivo</h3>
+                        <a 
+                          href={selectedJob.attachment_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          download
+                          className="flex items-center gap-3 p-4 bg-[#f6f3f2] rounded-2xl hover:bg-[#c8e6ff]/20 transition-all border border-transparent hover:border-[#00628c]/10"
+                        >
+                          <div className="w-10 h-10 rounded-xl bg-[#c8e6ff] flex items-center justify-center text-[#00628c]">
+                            <Paperclip className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-black text-[#00628c] uppercase tracking-wider">Clique para saber mais</p>
+                            <p className="text-[10px] text-[#6f7881]">Clique para baixar o link do anexo</p>
+                          </div>
+                        </a>
+                      </div>
+                    )}
+
+                    {(selectedJob.contact_email || selectedJob.contact_phone || (selectedJob as any).email || (selectedJob as any).phone) && (
+                      <div className="p-6 bg-[#00628c] rounded-3xl text-white">
+                        <h4 className="text-xs font-black uppercase tracking-widest mb-4 opacity-70">Contato</h4>
+                        <div className="flex flex-col sm:flex-row gap-6">
+                          {(selectedJob.contact_email || (selectedJob as any).email) && (
+                            <div className="space-y-1">
+                              <p className="text-[10px] uppercase font-bold opacity-50">E-mail</p>
+                              <a href={`mailto:${selectedJob.contact_email || (selectedJob as any).email}`} className="font-bold hover:underline flex items-center gap-2">
+                                <Mail className="w-4 h-4" /> {selectedJob.contact_email || (selectedJob as any).email}
+                              </a>
+                            </div>
+                          )}
+                          {(selectedJob.contact_phone || (selectedJob as any).phone) && (
+                            <div className="space-y-1">
+                              <p className="text-[10px] uppercase font-bold opacity-50">Telefone</p>
+                              <a href={`tel:${selectedJob.contact_phone || (selectedJob as any).phone}`} className="font-bold hover:underline flex items-center gap-2">
+                                <Phone className="w-4 h-4" /> {selectedJob.contact_phone || (selectedJob as any).phone}
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -364,6 +448,126 @@ export default function LandingPage() {
                   <p className="text-sm text-[#6f7881] font-medium italic">
                     Siga as instruções de candidatura apresentadas na descrição acima.
                   </p>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {selectedCandidate && (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setSelectedCandidate(null)}
+                className="absolute inset-0 bg-[#3e4850]/60 backdrop-blur-sm"
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-2xl bg-white rounded-[2rem] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+              >
+                <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar">
+                  <button 
+                    onClick={() => setSelectedCandidate(null)}
+                    className="absolute top-6 right-6 p-2 bg-[#f6f3f2] rounded-full text-[#3e4850] hover:bg-[#00628c] hover:text-white transition-all z-10"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+
+                  <div className="flex flex-col md:flex-row items-center md:items-start gap-8 mb-8">
+                    <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-[2.5rem] overflow-hidden shadow-xl shrink-0">
+                      <CandidateAvatar src={selectedCandidate.image} name={selectedCandidate.name} />
+                    </div>
+                    <div className="text-center md:text-left flex-1">
+                      <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-3">
+                        <span className="px-3 py-1 rounded-full bg-[#bff444] text-[#141f00] text-[10px] font-black uppercase tracking-widest">
+                          {selectedCandidate.area}
+                        </span>
+                        {selectedCandidate.verified && (
+                          <span className="flex items-center gap-1 text-[#00628c] text-[10px] font-black uppercase tracking-widest bg-[#c8e6ff] px-3 py-1 rounded-full">
+                            <Verified className="w-3 h-3" /> Verificado
+                          </span>
+                        )}
+                      </div>
+                      <h2 className="text-3xl font-black text-[#00628c] font-headline mb-1 tracking-tight">{selectedCandidate.name}</h2>
+                      <p className="text-[#964900] font-bold text-lg mb-4">{selectedCandidate.role}</p>
+                      <div className="flex flex-wrap justify-center md:justify-start gap-4">
+                        <div className="flex items-center gap-1.5 text-[#3e4850] text-sm font-bold bg-[#f6f3f2] px-4 py-2 rounded-xl">
+                          <MapPin className="w-4 h-4 text-[#00628c]" /> {selectedCandidate.location}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-8">
+                    <div>
+                      <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#00628c] mb-4">Resumo Profissional</h3>
+                      <div 
+                        dangerouslySetInnerHTML={{ __html: selectedCandidate.summary }} 
+                        className="text-[#3e4850] leading-relaxed text-sm md:text-base rich-text-content prose prose-sm max-w-none"
+                      />
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#00628c] mb-4">Habilidades</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedCandidate.skills?.map((skill: string) => (
+                          <span key={skill} className="px-4 py-2 bg-[#f6f3f2] rounded-xl text-xs font-bold text-[#3e4850] uppercase tracking-wider border border-[#bec8d1]/10">
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {selectedCandidate.cv_url && (
+                      <div className="pt-6 border-t border-[#f6f3f2]">
+                        <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#00628c] mb-4">Currículo Anexo</h3>
+                        <a 
+                          href={selectedCandidate.cv_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          download
+                          className="flex items-center gap-4 p-4 bg-[#f6f3f2] rounded-2xl hover:bg-[#c8e6ff]/20 transition-all border border-transparent hover:border-[#00628c]/10"
+                        >
+                          <div className="w-12 h-12 rounded-xl bg-[#c8e6ff] flex items-center justify-center text-[#00628c]">
+                            <Paperclip className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-black text-[#00628c] uppercase tracking-wider">Clique para saber mais</p>
+                            <p className="text-[10px] text-[#6f7881]">Clique para baixar o arquivo anexado</p>
+                          </div>
+                        </a>
+                      </div>
+                    )}
+
+                    <div className="p-8 bg-[#00628c] rounded-3xl text-white shadow-xl shadow-[#00628c]/20">
+                      <h4 className="text-xs font-black uppercase tracking-widest mb-6 opacity-70">Entrar em Contato</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-2">
+                          <p className="text-[10px] uppercase font-black opacity-50 tracking-widest">E-mail</p>
+                          <a href={`mailto:${selectedCandidate.email}`} className="text-lg font-bold hover:underline flex items-center gap-3">
+                            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
+                              <Mail className="w-5 h-5 text-white" />
+                            </div>
+                            {selectedCandidate.email}
+                          </a>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-[10px] uppercase font-black opacity-50 tracking-widest">Telefone / WhatsApp</p>
+                          <a href={`https://wa.me/${selectedCandidate.phone?.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-lg font-bold hover:underline flex items-center gap-3">
+                            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
+                              <Phone className="w-5 h-5 text-white" />
+                            </div>
+                            {selectedCandidate.phone}
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </motion.div>
             </div>
@@ -392,7 +596,8 @@ export default function LandingPage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.1 }}
-                    className="bg-white p-6 lg:p-8 rounded-[2.5rem] shadow-xl shadow-[#00628c]/5 border border-[#bec8d1]/10 flex flex-col h-full relative group"
+                    className="bg-white p-6 lg:p-8 rounded-[2.5rem] shadow-xl shadow-[#00628c]/5 border border-[#bec8d1]/10 flex flex-col h-full relative group cursor-pointer active:scale-95 transition-all"
+                    onClick={() => setSelectedCandidate(cand)}
                   >
                     <div className="flex items-start gap-4 mb-6">
                       <div className="relative w-16 h-16 lg:w-20 lg:h-20 rounded-2xl overflow-hidden shadow-inner shrink-0 border-2 border-[#bff444] bg-[#f6f3f2]">
