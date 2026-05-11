@@ -98,6 +98,18 @@ CREATE TABLE IF NOT EXISTS public.contatos (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
+-- Tabela de Depoimentos
+CREATE TABLE IF NOT EXISTS public.testimonials (
+  id uuid default gen_random_uuid() primary key,
+  name text not null,
+  role text,
+  company text,
+  content text not null,
+  photo_url text,
+  status text default 'pending', -- pending, approved, rejected
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+
 -- ==========================================
 -- 2. MIGRAÇÃO DE DADOS (JOBS -> VAGAS)
 -- ==========================================
@@ -172,6 +184,7 @@ ALTER TABLE public.noticias ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.contatos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.testimonials ENABLE ROW LEVEL SECURITY;
 
 -- IMPORTANTE: Remover políticas antigas se for rodar novamente para evitar erro de "already exists"
 DROP POLICY IF EXISTS "Public Read Vagas" ON public.vagas;
@@ -181,24 +194,28 @@ DROP POLICY IF EXISTS "Public Read Noticias" ON public.noticias;
 DROP POLICY IF EXISTS "Public Read History" ON public.history;
 DROP POLICY IF EXISTS "Public Read Settings" ON public.settings;
 DROP POLICY IF EXISTS "Public Read Contatos" ON public.contatos;
+DROP POLICY IF EXISTS "Public Read Testimonials" ON public.testimonials;
 
 DROP POLICY IF EXISTS "Public Insert Vagas" ON public.vagas;
 DROP POLICY IF EXISTS "Public Insert Talentos" ON public.talentos;
 DROP POLICY IF EXISTS "Public Insert Negocios" ON public.negocios;
 DROP POLICY IF EXISTS "Public Insert History" ON public.history;
 DROP POLICY IF EXISTS "Public Insert Contatos" ON public.contatos;
+DROP POLICY IF EXISTS "Public Insert Testimonials" ON public.testimonials;
 
 DROP POLICY IF EXISTS "Public Update Vagas" ON public.vagas;
 DROP POLICY IF EXISTS "Public Update Talentos" ON public.talentos;
 DROP POLICY IF EXISTS "Public Update Negocios" ON public.negocios;
 DROP POLICY IF EXISTS "Public Update Noticias" ON public.noticias;
 DROP POLICY IF EXISTS "Public Update Settings" ON public.settings;
+DROP POLICY IF EXISTS "Public Update Testimonials" ON public.testimonials;
 
 DROP POLICY IF EXISTS "Public Delete Vagas" ON public.vagas;
 DROP POLICY IF EXISTS "Public Delete Talentos" ON public.talentos;
 DROP POLICY IF EXISTS "Public Delete Negocios" ON public.negocios;
 DROP POLICY IF EXISTS "Public Delete Noticias" ON public.noticias;
 DROP POLICY IF EXISTS "Public Delete History" ON public.history;
+DROP POLICY IF EXISTS "Public Delete Testimonials" ON public.testimonials;
 
 -- Políticas de Leitura (Geral - Ajustado para permitir que Admin veja pendentes)
 CREATE POLICY "Public Read Vagas" ON public.vagas FOR SELECT USING (true);
@@ -208,6 +225,7 @@ CREATE POLICY "Public Read Noticias" ON public.noticias FOR SELECT USING (true);
 CREATE POLICY "Public Read History" ON public.history FOR SELECT USING (true);
 CREATE POLICY "Public Read Settings" ON public.settings FOR SELECT USING (true);
 CREATE POLICY "Public Read Contatos" ON public.contatos FOR SELECT USING (true);
+CREATE POLICY "Public Read Testimonials" ON public.testimonials FOR SELECT USING (true);
 
 -- Políticas de Inserção (Geral)
 CREATE POLICY "Public Insert Vagas" ON public.vagas FOR INSERT WITH CHECK (true);
@@ -215,6 +233,7 @@ CREATE POLICY "Public Insert Talentos" ON public.talentos FOR INSERT WITH CHECK 
 CREATE POLICY "Public Insert Negocios" ON public.negocios FOR INSERT WITH CHECK (true);
 CREATE POLICY "Public Insert History" ON public.history FOR INSERT WITH CHECK (true);
 CREATE POLICY "Public Insert Contatos" ON public.contatos FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public Insert Testimonials" ON public.testimonials FOR INSERT WITH CHECK (true);
 
 -- Políticas de Atualização (Admin)
 CREATE POLICY "Public Update Vagas" ON public.vagas FOR UPDATE USING (true) WITH CHECK (true);
@@ -222,6 +241,7 @@ CREATE POLICY "Public Update Talentos" ON public.talentos FOR UPDATE USING (true
 CREATE POLICY "Public Update Negocios" ON public.negocios FOR UPDATE USING (true) WITH CHECK (true);
 CREATE POLICY "Public Update Noticias" ON public.noticias FOR UPDATE USING (true) WITH CHECK (true);
 CREATE POLICY "Public Update Settings" ON public.settings FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Public Update Testimonials" ON public.testimonials FOR UPDATE USING (true) WITH CHECK (true);
 
 -- Políticas de Exclusão (Admin)
 CREATE POLICY "Public Delete Vagas" ON public.vagas FOR DELETE USING (true);
@@ -229,6 +249,7 @@ CREATE POLICY "Public Delete Talentos" ON public.talentos FOR DELETE USING (true
 CREATE POLICY "Public Delete Negocios" ON public.negocios FOR DELETE USING (true);
 CREATE POLICY "Public Delete Noticias" ON public.noticias FOR DELETE USING (true);
 CREATE POLICY "Public Delete History" ON public.history FOR DELETE USING (true);
+CREATE POLICY "Public Delete Testimonials" ON public.testimonials FOR DELETE USING (true);
 
 -- ==========================================
 -- 6. LIMPEZA (SÓ APAGUE DEPOIS DE CONFERIR TUDO)

@@ -106,6 +106,8 @@ export default function LandingPage() {
   const [isLoadingJobs, setIsLoadingJobs] = useState(true);
   const [featuredCandidates, setFeaturedCandidates] = useState<Candidate[]>([]);
   const [isLoadingCandidates, setIsLoadingCandidates] = useState(true);
+  const [testimonials, setTestimonials] = useState<any[]>([]);
+  const [isLoadingTestimonials, setIsLoadingTestimonials] = useState(true);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
 
@@ -113,8 +115,9 @@ export default function LandingPage() {
     async function fetchFeaturedData() {
       setIsLoadingJobs(true);
       setIsLoadingCandidates(true);
+      setIsLoadingTestimonials(true);
       
-      const [jobsRes, candidatesRes] = await Promise.all([
+      const [jobsRes, candidatesRes, testimonialsRes] = await Promise.all([
         supabase
           .from('vagas')
           .select('*')
@@ -126,7 +129,13 @@ export default function LandingPage() {
           .select('*')
           .in('status', ['active', 'approved'])
           .order('created_at', { ascending: false })
-          .limit(3)
+          .limit(3),
+        supabase
+          .from('testimonials')
+          .select('*')
+          .eq('status', 'approved')
+          .order('created_at', { ascending: false })
+          .limit(2)
       ]);
 
       if (jobsRes.error) {
@@ -140,9 +149,16 @@ export default function LandingPage() {
       } else if (candidatesRes.data) {
         setFeaturedCandidates(candidatesRes.data);
       }
+
+      if (testimonialsRes.error) {
+        console.error('Erro ao buscar depoimentos:', testimonialsRes.error);
+      } else if (testimonialsRes.data) {
+        setTestimonials(testimonialsRes.data);
+      }
       
       setIsLoadingJobs(false);
       setIsLoadingCandidates(false);
+      setIsLoadingTestimonials(false);
     }
     fetchFeaturedData();
   }, []);
@@ -851,55 +867,77 @@ export default function LandingPage() {
 
         {/* Depoimentos */}
         <section id="comunidade" className="py-16 lg:py-24 bg-white overflow-hidden">
-          <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <div className="max-w-7xl mx-auto px-4 md:px-8 text-left">
             <h2 className="text-3xl lg:text-4xl font-bold text-[#1b1c1c] text-center mb-12 lg:mb-20 tracking-tight font-headline">Depoimentos da Comunidade</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-              {/* Testimonial 1 */}
-              <div className="bg-[#f6f3f2] p-10 rounded-[2rem] relative border border-[#bec8d1]/10">
-                <Quote className="w-16 h-16 text-[#fc820c] absolute -top-6 left-10 opacity-20 fill-current" />
-                <p className="text-xl text-[#1b1c1c] leading-relaxed mb-8 italic relative z-10">
-                  &quot;A Corrente do Bem não me deu apenas um emprego, me deu a chance de recomeçar com dignidade. Hoje sou supervisor de manutenção e ajudo outros que estão na mesma situação.&quot;
-                </p>
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-[#fc820c]">
-                    <Image 
-                      alt="Ricardo S." 
-                      className="w-full h-full object-cover" 
-                      src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=150" 
-                      width={56}
-                      height={56}
-                      referrerPolicy="no-referrer"
-                    />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 mb-12">
+              {isLoadingTestimonials ? (
+                <>
+                  <div className="h-64 bg-gray-100 animate-pulse rounded-[2rem]"></div>
+                  <div className="h-64 bg-gray-100 animate-pulse rounded-[2rem]"></div>
+                </>
+              ) : testimonials.length > 0 ? (
+                testimonials.map((t, idx) => (
+                  <div key={t.id} className={cn(
+                    "p-10 rounded-[2rem] relative border border-[#bec8d1]/10 flex flex-col",
+                    idx % 2 === 0 ? "bg-[#f6f3f2]" : "bg-[#00628c] text-white shadow-xl shadow-[#00628c]/20"
+                  )}>
+                    <Quote className={cn(
+                      "w-16 h-16 absolute -top-6 left-10 opacity-20 fill-current",
+                      idx % 2 === 0 ? "text-[#fc820c]" : "text-white"
+                    )} />
+                    <p className="text-xl leading-relaxed mb-8 italic relative z-10">
+                      &quot;{t.content}&quot;
+                    </p>
+                    <div className="flex items-center gap-4 mt-auto">
+                      <div className={cn(
+                        "w-14 h-14 rounded-full overflow-hidden border-2",
+                        idx % 2 === 0 ? "border-[#fc820c]" : "border-white/40"
+                      )}>
+                        {t.photo_url ? (
+                          <Image 
+                            alt={t.name}
+                            className="w-full h-full object-cover" 
+                            src={t.photo_url} 
+                            width={56}
+                            height={56}
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-400">
+                             <User className="w-8 h-8" />
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div className={cn("font-bold", idx % 2 === 0 ? "text-[#1b1c1c]" : "")}>{t.name}</div>
+                        <div className={cn("text-sm font-semibold", idx % 2 === 0 ? "text-[#964900]" : "opacity-80")}>
+                          {t.role} {t.company && `em ${t.company}`}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="font-bold text-[#1b1c1c]">Ricardo Souza</div>
-                    <div className="text-sm text-[#964900] font-semibold">Ex-candidato, hoje Líder de Equipe</div>
-                  </div>
+                ))
+              ) : (
+                <div className="col-span-full text-center py-12 bg-gray-50 rounded-[2rem] border border-dashed border-gray-200">
+                   <p className="text-gray-500 font-medium">Nenhum depoimento aprovado ainda. Seja o primeiro!</p>
                 </div>
-              </div>
-              {/* Testimonial 2 */}
-              <div className="bg-[#00628c] p-10 rounded-[2rem] relative text-white shadow-xl shadow-[#00628c]/20">
-                <Quote className="w-16 h-16 text-white absolute -top-6 left-10 opacity-20 fill-current" />
-                <p className="text-xl leading-relaxed mb-8 italic relative z-10">
-                  &quot;Como empresa, encontramos talentos com uma garra e vontade de crescer que não víamos em outras plataformas. É um modelo de contratação mais humano e eficiente.&quot;
-                </p>
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white/40">
-                    <Image 
-                      alt="Helena M." 
-                      className="w-full h-full object-cover" 
-                      src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150" 
-                      width={56}
-                      height={56}
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                  <div>
-                    <div className="font-bold">Helena Machado</div>
-                    <div className="text-sm opacity-80 font-semibold">RH da Construtora Aliança</div>
-                  </div>
-                </div>
-              </div>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+               <Link 
+                href="/depoimentos" 
+                className="w-full sm:w-auto px-8 py-3 rounded-2xl font-bold bg-[#f6f3f2] text-[#00628c] hover:bg-[#00628c]/5 transition-colors border border-[#00628c]/10 text-center"
+               >
+                 Ver todos os depoimentos
+               </Link>
+               <Link 
+                href="/depoimentos/novo" 
+                className="w-full sm:w-auto px-8 py-3 rounded-2xl font-bold bg-[#fc820c] text-white hover:scale-105 transition-transform shadow-lg shadow-[#fc820c]/20 text-center"
+               >
+                 Escrever um depoimento
+               </Link>
             </div>
           </div>
         </section>

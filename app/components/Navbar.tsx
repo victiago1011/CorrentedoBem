@@ -13,6 +13,7 @@ import {
   TrendingUp,
   Newspaper,
   Info,
+  Quote,
   ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -35,6 +36,7 @@ export function Navbar() {
       icon: <Info className="w-4 h-4" />,
       subItems: [
         { name: 'Quem Somos', href: '/#sobre-nos', icon: <Handshake className="w-4 h-4" /> },
+        { name: 'Depoimentos', href: '/depoimentos', icon: <Quote className="w-4 h-4" /> },
         { name: 'Como Funciona', href: '/#como-funciona', icon: <Info className="w-4 h-4" /> },
         { name: 'Entre em Contato', href: '/contato', icon: <Mail className="w-4 h-4" /> }
       ]

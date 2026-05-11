@@ -12,7 +12,13 @@ import {
   Tag,
   Bookmark,
   Handshake,
-  Paperclip
+  Paperclip,
+  Instagram,
+  Linkedin,
+  Twitter,
+  Facebook,
+  Link as LinkIcon,
+  MapPin
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import Image from 'next/image';
@@ -21,6 +27,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import ReactMarkdown from 'react-markdown';
 import { Navbar } from '@/app/components/Navbar';
+import { cn } from '@/lib/utils';
 
 interface Noticia {
   id: string;
@@ -35,6 +42,36 @@ interface Noticia {
   status: string;
   published_at: string;
 }
+
+const SafeImage = ({ src, alt, className, fill, unoptimized, ...props }: any) => {
+  const [error, setError] = useState(false);
+  
+  if (error || !src) {
+    return (
+      <div className={cn(
+        "bg-[#f0f2f5] flex items-center justify-center overflow-hidden",
+        className,
+        fill ? "absolute inset-0" : ""
+      )}>
+        <div className="w-12 h-12 text-[#bec8d1]">
+          <Handshake className="w-full h-full opacity-20" />
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      fill={fill}
+      unoptimized={unoptimized}
+      className={cn(className, "object-cover")}
+      onError={() => setError(true)}
+      {...props}
+    />
+  );
+};
 
 export default function NoticiaDetailPage() {
   const { slug } = useParams();
@@ -84,223 +121,200 @@ export default function NoticiaDetailPage() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-white">
-      <Navbar />
-      {/* Header / Banner */}
-      <header className="relative w-full h-[70vh] bg-[#1a2b3b] overflow-hidden">
-        {noticia.image_url ? (
-          <Image 
-            src={noticia.image_url} 
-            alt={noticia.title} 
-            fill 
-            className="object-cover opacity-80 transition-transform duration-[10s] hover:scale-110"
-            priority
-            referrerPolicy="no-referrer"
-            unoptimized
-          />
-        ) : (
-          <div className="absolute inset-0 bg-[#00628c]"></div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#1a2b3b]/60 via-transparent to-white"></div>
-        
-        <div className="container mx-auto px-6 relative h-full flex flex-col justify-end pb-12 lg:pb-24">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="max-w-5xl"
-          >
-            <div className="flex flex-wrap gap-4 mb-8">
-               <button 
-                  onClick={() => router.back()}
-                  className="px-6 py-3 bg-white/10 backdrop-blur-md text-white border border-white/20 rounded-full flex items-center gap-2 hover:bg-white/20 transition-all font-black text-[10px] uppercase tracking-widest shadow-xl"
-               >
-                 <ArrowLeft className="w-4 h-4" />
-                 Voltar para o Blog
-               </button>
-               <span className="px-6 py-3 bg-[#fc820c] text-white font-black text-[10px] uppercase tracking-widest rounded-full shadow-2xl shadow-[#fc820c]/20">
-                 {noticia.category || 'Destaque'}
-               </span>
-            </div>
-            
-            <h1 className="text-4xl lg:text-7xl font-black text-[#1a2b3b] mb-10 leading-[1.1] tracking-tighter max-w-4xl">
-              {noticia.title}
-            </h1>
+  const formattedDate = new Date(noticia.published_at).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 
-            <div className="flex flex-wrap items-center gap-y-6 gap-x-12 text-[#1a2b3b]/50 font-black text-[10px] uppercase tracking-widest pt-10 border-t border-[#1a2b3b]/10">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-[#00628c] flex items-center justify-center text-white shadow-lg shadow-[#00628c]/20">
-                  <User size={18} />
+  return (
+    <div className="min-h-screen bg-white font-body selection:bg-[#00628c]/10 selection:text-[#00628c]">
+      <Navbar />
+      
+      <main className="pt-24 lg:pt-32 pb-24">
+        {/* News Header - G1 Style */}
+        <article className="max-w-4xl mx-auto px-4 md:px-6">
+          {/* Breadcrumb / Category */}
+          <div className="flex items-center gap-2 mb-6">
+            <Link href="/noticias" className="text-[#00628c] font-black text-[10px] uppercase tracking-widest hover:underline">
+              {noticia.category || 'Geral'}
+            </Link>
+          </div>
+
+          {/* Headline */}
+          <h1 className="text-3xl md:text-5xl lg:text-5xl font-black text-[#1a2b3b] leading-[1.1] mb-6 tracking-tight">
+            {noticia.title}
+          </h1>
+
+          {/* Subtitle / Excerpt */}
+          {noticia.excerpt && (
+            <p className="text-lg md:text-xl text-gray-500 font-medium leading-relaxed mb-8">
+              {noticia.excerpt}
+            </p>
+          )}
+
+          {/* Byline */}
+          <div className="border-t border-gray-100 pt-6 mb-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex flex-col gap-1 items-start">
+                <div className="flex items-center gap-2 text-sm text-[#1a2b3b] font-bold">
+                  <span>Por {noticia.author || 'Corrente do Bem'}</span>
                 </div>
-                <div>
-                  <p className="text-[#1a2b3b] text-xs mb-0.5">{noticia.author || 'Redação'}</p>
-                  <p className="opacity-60">Escritor principal</p>
+                <div className="text-[11px] text-gray-400 font-bold uppercase tracking-wider flex items-center gap-2">
+                  <span>{formattedDate.replace(',', ' — ')}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-3 bg-[#F1F5F9]/50 px-4 py-2 rounded-xl">
-                <Calendar className="w-4 h-4 text-[#fc820c]" />
-                {new Date(noticia.published_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
-              </div>
-              <div className="flex items-center gap-3 bg-[#F1F5F9]/50 px-4 py-2 rounded-xl">
-                <Clock className="w-4 h-4 text-[#fc820c]" />
-                <span>5 minutos de leitura</span>
-              </div>
-              <div className="ml-auto hidden lg:flex items-center gap-3">
-                <button className="flex items-center gap-2 px-6 py-2 bg-white rounded-full shadow-sm hover:shadow-md transition-shadow border border-[#bec8d1]/20">
-                  <Share2 className="w-4 h-4 text-[#00628c]" />
-                  <span>Compartilhar</span>
+              
+              {/* Sharing Buttons */}
+              <div className="flex items-center gap-2">
+                <button title="Compartilhar no Facebook" className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-100 hover:bg-[#1877f2] hover:text-white transition-all text-gray-400">
+                  <Facebook className="w-4 h-4" />
+                </button>
+                <button title="Compartilhar no Twitter" className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-100 hover:bg-[#1da1f2] hover:text-white transition-all text-gray-400">
+                  <Twitter className="w-4 h-4" />
+                </button>
+                <button title="Copiar link" className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-100 hover:bg-gray-50 transition-all text-gray-400">
+                  <LinkIcon className="w-4 h-4" />
                 </button>
               </div>
             </div>
-          </motion.div>
-        </div>
-      </header>
-
-      {/* Article Content */}
-      <article className="py-24 bg-white">
-        <div className="container mx-auto px-6">
-          <div className="max-w-4xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-            >
-              {noticia.excerpt && (
-                <div className="relative mb-20">
-                  <div className="absolute -left-8 top-0 bottom-0 w-1.5 bg-gradient-to-b from-[#00628c] to-[#fc820c] rounded-full hidden lg:block"></div>
-                  <p className="text-2xl lg:text-3xl font-black text-[#1a2b3b] italic leading-relaxed opacity-80">
-                    {noticia.excerpt}
-                  </p>
-                </div>
-              )}
-              
-              <div 
-                className="prose prose-2xl prose-slate max-w-none text-[#3e4850] leading-[1.8] font-medium prose-headings:text-[#1a2b3b] prose-headings:font-black prose-headings:tracking-tight prose-p:mb-8 prose-li:mb-2 prose-a:text-[#00628c] prose-a:font-bold prose-strong:text-[#1a2b3b] selection:bg-[#00628c]/10 prose-img:rounded-[2rem] prose-img:shadow-2xl news-content"
-                dangerouslySetInnerHTML={{ __html: noticia.content }}
-              />
-
-              {noticia.attachment_url && (
-                <div className="mt-16 p-8 bg-[#f6f3f2] rounded-[2.5rem] border border-[#bec8d1]/20">
-                  <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#00628c] mb-6">Documento em Anexo</h3>
-                  <a 
-                    href={noticia.attachment_url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    download
-                    className="flex items-center gap-4 p-5 bg-white rounded-2xl hover:bg-[#c8e6ff]/20 transition-all border border-transparent hover:border-[#00628c]/10 group shadow-sm"
-                  >
-                    <div className="w-14 h-14 rounded-xl bg-[#c8e6ff] flex items-center justify-center text-[#00628c] group-hover:scale-110 transition-transform">
-                      <Paperclip className="w-7 h-7" />
-                    </div>
-                    <div>
-                      <p className="text-base font-black text-[#00628c] uppercase tracking-wider">Clique para saber mais</p>
-                      <p className="text-xs text-[#6f7881]">Clique para baixar o arquivo relacionado a esta notícia</p>
-                    </div>
-                  </a>
-                </div>
-              )}
-
-              <style jsx global>{`
-                .news-content p { margin-bottom: 2rem; }
-                .news-content h1, .news-content h2, .news-content h3 { margin-top: 3rem; margin-bottom: 1.5rem; }
-                .news-content ul, .news-content ol { padding-left: 1.5rem; margin-bottom: 2rem; }
-                .news-content li { margin-bottom: 0.5rem; }
-              `}</style>
-
-              <div className="mt-24 pt-12 border-t border-[#F1F5F9] flex flex-wrap items-center justify-between gap-10">
-                <div className="flex items-center gap-6">
-                  <span className="text-[#1a2b3b] font-black text-xs uppercase tracking-[0.2em]">Categorias</span>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="px-5 py-2 bg-[#F8FAFC] border border-[#F1F5F9] text-[#475569] font-black text-[10px] rounded-full uppercase tracking-wider hover:bg-[#00628c] hover:text-white transition-all cursor-default">#{noticia.category || 'Comunidade'}</span>
-                    <span className="px-5 py-2 bg-[#F8FAFC] border border-[#F1F5F9] text-[#475569] font-black text-[10px] rounded-full uppercase tracking-wider hover:bg-[#fc820c] hover:text-white transition-all cursor-default">#Esperança</span>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-4">
-                  <button className="flex items-center gap-3 px-8 py-4 bg-[#1a2b3b] text-white rounded-2xl hover:bg-[#00628c] transition-all font-black text-xs uppercase tracking-widest shadow-xl">
-                    <Bookmark size={18} className="text-[#fc820c]" />
-                    Salvar Artigo
-                  </button>
-                  <button className="p-4 bg-[#F8FAFC] text-[#1a2b3b] rounded-2xl hover:bg-[#00628c] hover:text-white transition-all border border-[#F1F5F9]">
-                    <Share2 size={20} />
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Author Sidebar - Now integrated below content for mobile/cleaner for desktop */}
-            <div className="mt-32 p-12 bg-[#F8FAFC] rounded-[3rem] border border-[#F1F5F9] flex flex-col md:flex-row gap-12 items-center">
-                <div className="w-40 h-40 relative rounded-[2.5rem] overflow-hidden shadow-2xl flex-shrink-0 bg-[#00628c]">
-                  <div className="absolute inset-0 flex items-center justify-center text-white">
-                    <User size={64} />
-                  </div>
-                </div>
-                <div className="flex-1 text-center md:text-left">
-                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#fc820c] mb-3 block">Autor em Destaque</span>
-                  <h3 className="text-3xl font-black text-[#1a2b3b] mb-4">{noticia.author || 'Equipe Corrente do Bem'}</h3>
-                  <p className="text-lg text-[#3e4850] leading-relaxed mb-8 opacity-70">
-                    Dedicado a narrar histórias de superação e conectar pessoas através da informação qualificada e humanizada.
-                  </p>
-                  <div className="flex flex-wrap justify-center md:justify-start gap-4">
-                    <Link href="/noticias" className="px-6 py-2 bg-white text-[#00628c] border border-[#00628c]/10 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-[#00628c] hover:text-white transition-all">
-                      Ver Perfil Completo
-                    </Link>
-                  </div>
-                </div>
-            </div>
           </div>
-        </div>
-      </article>
 
-      {/* Navigation Footer */}
-      <footer className="py-20 bg-[#F8FAFC] border-t border-[#F1F5F9]">
-        <div className="container mx-auto px-6">
-           <div className="flex justify-between items-center">
-             <Link href="/noticias" className="flex items-center gap-3 text-[#1a2b3b] font-black uppercase tracking-widest text-xs hover:text-[#00628c] transition-colors group">
-               <ArrowLeft className="w-5 h-5 group-hover:-translate-x-2 transition-transform" />
-               Todas as Notícias
-             </Link>
-           </div>
-        </div>
-      </footer>
-      {/* Footer */}
-      <footer className="bg-[#f0eded] py-16">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12 text-left">
-            <div className="col-span-1 lg:col-span-2">
-              <Link href="/" className="flex items-center gap-2 mb-6 text-left">
-                <div className="w-8 h-8 bg-[#00628c] rounded-lg flex items-center justify-center text-white">
-                  <Handshake className="w-5 h-5 text-left" />
+          {/* Main Image */}
+          {noticia.image_url && (
+            <figure className="mb-12 -mx-4 md:mx-0">
+              <div className="relative aspect-[16/9] w-full overflow-hidden md:rounded-xl">
+                <SafeImage 
+                  src={noticia.image_url} 
+                  alt={noticia.title} 
+                  fill 
+                  priority
+                  unoptimized
+                  className="object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              <figcaption className="mt-3 px-4 md:px-0 text-[11px] text-gray-400 font-medium italic">
+                Foto: {noticia.author || 'Divulgação'} / Corrente do Bem
+              </figcaption>
+            </figure>
+          )}
+
+          {/* News Content */}
+          <div 
+            className="prose prose-lg md:prose-xl prose-slate max-w-none text-[#333] leading-[1.8] font-serif-ish news-content"
+            dangerouslySetInnerHTML={{ __html: noticia.content }}
+          />
+
+          {/* Attachment if exists */}
+          {noticia.attachment_url && (
+            <div className="mt-16 p-8 bg-gray-50 rounded-2xl border border-gray-100">
+              <div className="flex items-center gap-3 mb-6">
+                 <Paperclip className="w-5 h-5 text-[#00628c]" />
+                 <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#00628c]">Material de Apoio</h3>
+              </div>
+              <a 
+                href={noticia.attachment_url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                download
+                className="flex items-center gap-4 p-4 bg-white rounded-xl border border-transparent hover:border-[#00628c]/20 transition-all group shadow-sm"
+              >
+                <div className="w-12 h-12 rounded-lg bg-[#00628c]/5 flex items-center justify-center text-[#00628c]">
+                  <ArrowLeft className="w-6 h-6 rotate-180" />
                 </div>
-                <span className="text-xl font-bold text-[#00628c] font-headline">Corrente do Bem</span>
+                <div>
+                  <p className="text-sm font-bold text-[#1a2b3b]">Baixar arquivo em anexo</p>
+                  <p className="text-xs text-gray-400">Conteúdo extra selecionado por nossa redação</p>
+                </div>
+              </a>
+            </div>
+          )}
+
+          {/* Tags / Interaction Footer */}
+          <div className="mt-20 pt-12 border-t border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-8">
+            <div className="flex flex-wrap gap-2">
+              <span className="px-4 py-1.5 bg-gray-50 text-gray-500 font-bold text-[10px] uppercase tracking-wider rounded-full border border-gray-100">
+                #{noticia.category || 'NOTÍCIA'}
+              </span>
+              <span className="px-4 py-1.5 bg-gray-50 text-gray-500 font-bold text-[10px] uppercase tracking-wider rounded-full border border-gray-100">
+                #CORRENTEDOBEM
+              </span>
+            </div>
+            
+            <Link 
+              href="/noticias" 
+              className="inline-flex items-center gap-2 text-[#00628c] font-black text-xs uppercase tracking-widest hover:gap-4 transition-all"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Ver todas as notícias
+            </Link>
+          </div>
+        </article>
+      </main>
+
+      {/* Styled JSX for content consistency */}
+      <style jsx global>{`
+        .news-content p { margin-bottom: 2rem; font-size: 1.25rem; }
+        @media (max-width: 768px) {
+          .news-content p { font-size: 1.125rem; }
+        }
+        .news-content h2 { font-size: 2rem; margin-top: 3rem; margin-bottom: 1.5rem; font-weight: 900; line-height: 1.2; }
+        .news-content h3 { font-size: 1.5rem; margin-top: 2.5rem; margin-bottom: 1rem; font-weight: 800; }
+        .news-content blockquote { border-left-width: 4px; border-color: #00628c; padding-left: 1.5rem; font-style: italic; color: #4b5563; font-weight: 500; margin: 3rem 0; }
+        .news-content ul, .news-content ol { padding-left: 1.5rem; margin-bottom: 2rem; }
+        .news-content li { margin-bottom: 0.75rem; }
+        .news-content img { border-radius: 0.75rem; margin: 3rem 0; }
+      `}</style>
+
+      {/* Footer from listing page for consistency */}
+      <footer className="bg-white border-t border-gray-100 py-20 pb-12">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-20">
+            <div className="col-span-1 lg:col-span-2">
+              <Link href="/" className="flex items-center gap-3 mb-8">
+                <div className="w-10 h-10 bg-[#00628c] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#00628c]/20">
+                  <Handshake className="w-6 h-6" />
+                </div>
+                <span className="text-2xl font-black text-[#1a2b3b] tracking-tighter">Corrente do Bem</span>
               </Link>
-              <p className="text-[#3e4850] max-w-md leading-relaxed text-left">
-                Transformando a busca por emprego em uma jornada de respeito e conexões verdadeiras. Conectando carreiras com dignidade.
+              <p className="text-[#3e4850] text-lg lg:text-xl opacity-60 leading-relaxed max-w-md">
+                Unindo talentos e empresas através de conexões genuínas e respeito mútuo.
               </p>
             </div>
             <div>
-              <h4 className="text-xs font-black uppercase tracking-widest text-[#00628c] mb-6 text-left">Empresa</h4>
-              <ul className="space-y-4 text-left">
-                <li><Link href="#" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Sobre Nós</Link></li>
-                <li><Link href="#" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Privacidade</Link></li>
-                <li><Link href="#" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Termos de Uso</Link></li>
+              <h4 className="text-xs font-black uppercase tracking-widest text-[#00628c] mb-8">Navegação</h4>
+              <ul className="space-y-4">
+                <li><Link href="/vagas" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Vagas</Link></li>
+                <li><Link href="/talentos" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Currículos</Link></li>
+                <li><Link href="/negocios" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Negócios</Link></li>
+                <li><Link href="/noticias" className="text-lg text-[#00628c] transition-colors font-black">Notícias</Link></li>
               </ul>
             </div>
             <div>
-              <h4 className="text-xs font-black uppercase tracking-widest text-[#00628c] mb-6 text-left">Suporte</h4>
-              <ul className="space-y-4 text-left">
-                <li><Link href="#" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Contato</Link></li>
-                <li><Link href="#" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Ajuda</Link></li>
+              <h4 className="text-xs font-black uppercase tracking-widest text-[#00628c] mb-8">Legal</h4>
+              <ul className="space-y-4">
+                <li><Link href="#" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Privacidade</Link></li>
+                <li><Link href="#" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Termos de Uso</Link></li>
+                <li><Link href="#" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Cookies</Link></li>
               </ul>
             </div>
           </div>
-          <div className="pt-8 border-t border-[#bec8d1]/30 text-center">
-            <p className="text-xs font-bold text-[#6f7881] uppercase tracking-widest text-center">
+          <div className="pt-12 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-6">
+            <p className="text-sm font-bold text-[#3e4850]/40 uppercase tracking-widest">
               © 2024 Corrente do Bem. Todos os direitos reservados.
             </p>
+            <div className="flex gap-8">
+              <Link href="#" className="text-[#3e4850]/40 hover:text-[#00628c] transition-all"><span className="sr-only">Instagram</span><Instagram className="w-6 h-6" /></Link>
+              <Link href="#" className="text-[#3e4850]/40 hover:text-[#00628c] transition-all"><span className="sr-only">LinkedIn</span><Linkedin className="w-6 h-6" /></Link>
+              <Link href="#" className="text-[#3e4850]/40 hover:text-[#00628c] transition-all"><span className="sr-only">Twitter</span><Twitter className="w-6 h-6" /></Link>
+            </div>
           </div>
         </div>
       </footer>
     </div>
   );
 }
+

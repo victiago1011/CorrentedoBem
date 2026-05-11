@@ -37,6 +37,7 @@ import {
   Paperclip,
   Handshake,
   Loader2,
+  Quote,
   Edit,
   Trash2,
   Phone,
@@ -81,7 +82,18 @@ const CandidateAvatar = ({ src, name, className = "object-cover" }: { src?: stri
 
   // --- Types ---
 
-type View = 'noticias' | 'vagas' | 'curriculos' | 'negocios' | 'historico' | 'configuracoes' | 'galeria' | 'galeria_vagas' | 'galeria_negocios' | 'recusados' | 'contatos';
+type View = 'noticias' | 'vagas' | 'curriculos' | 'negocios' | 'historico' | 'configuracoes' | 'galeria' | 'galeria_vagas' | 'galeria_negocios' | 'recusados' | 'contatos' | 'depoimentos';
+
+interface Testimonial {
+  id: string | number;
+  name: string;
+  role?: string;
+  company?: string;
+  content: string;
+  photo_url?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at?: string;
+}
 
 interface Noticia {
   id: string | number;
@@ -320,6 +332,7 @@ const Sidebar = ({ activeView, setView, isOpen, onClose }: { activeView: View, s
           { id: 'noticias', label: 'Notícias', icon: <Megaphone className="w-5 h-5" /> },
           { id: 'curriculos', label: 'Currículos Pendentes', icon: <FileText className="w-5 h-5" /> },
           { id: 'negocios', label: 'Negócios Pendentes', icon: <TrendingUp className="w-5 h-5" /> },
+          { id: 'depoimentos', label: 'Depoimentos Pendentes', icon: <Quote className="w-5 h-5" /> },
           { id: 'galeria_vagas', label: 'Galeria de Vagas', icon: <Briefcase className="w-5 h-5" /> },
           { id: 'galeria', label: 'Galeria de Talentos', icon: <LayoutGrid className="w-5 h-5" /> },
           { id: 'galeria_negocios', label: 'Galeria de Negócios', icon: <Zap className="w-5 h-5" /> },
@@ -397,6 +410,7 @@ export default function Dashboard() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [negocios, setNegocios] = useState<Negocio[]>([]);
   const [noticias, setNoticias] = useState<Noticia[]>([]);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [contatos, setContatos] = useState<Contato[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -405,6 +419,7 @@ export default function Dashboard() {
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [selectedNegocio, setSelectedNegocio] = useState<Negocio | null>(null);
   const [selectedNoticia, setSelectedNoticia] = useState<Noticia | null>(null);
+  const [selectedTestimonial, setSelectedTestimonial] = useState<Testimonial | null>(null);
   const [isAddingJob, setIsAddingJob] = useState(false);
   const [isAddingNegocio, setIsAddingNegocio] = useState(false);
   const [isAddingNoticia, setIsAddingNoticia] = useState(false);
@@ -415,6 +430,7 @@ export default function Dashboard() {
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
   const [editingNegocio, setEditingNegocio] = useState<Negocio | null>(null);
   const [editingNoticia, setEditingNoticia] = useState<Noticia | null>(null);
+  const [editingTestimonial, setEditingTestimonial] = useState<Testimonial | null>(null);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     description: true,
     requirements: false,
@@ -427,6 +443,7 @@ export default function Dashboard() {
   const [jobCategory, setJobCategory] = useState('Todas as Vagas');
   const [negocioSearch, setNegocioSearch] = useState('');
   const [negocioCategory, setNegocioCategory] = useState('Todas');
+  const [testimonialSearch, setTestimonialSearch] = useState('');
   const [settings, setSettings] = useState<{
     id?: number;
     platform_name: string;
@@ -508,11 +525,12 @@ export default function Dashboard() {
   const fetchData = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const [jobsRes, candidatesRes, negociosRes, noticiasRes, historyRes, settingsRes, contatosRes] = await Promise.all([
+      const [jobsRes, candidatesRes, negociosRes, noticiasRes, testimonialsRes, historyRes, settingsRes, contatosRes] = await Promise.all([
         supabase.from('vagas').select('*').order('created_at', { ascending: false }),
         supabase.from('talentos').select('*').order('created_at', { ascending: false }),
         supabase.from('negocios').select('*').order('created_at', { ascending: false }),
         supabase.from('noticias').select('*').order('created_at', { ascending: false }),
+        supabase.from('testimonials').select('*').order('created_at', { ascending: false }),
         supabase.from('history').select('*').order('created_at', { ascending: false }),
         supabase.from('settings').select('*').maybeSingle(),
         supabase.from('contatos').select('*').order('created_at', { ascending: false })
@@ -522,6 +540,7 @@ export default function Dashboard() {
       if (candidatesRes.data) setCandidates(candidatesRes.data);
       if (negociosRes.data) setNegocios(negociosRes.data);
       if (noticiasRes.data) setNoticias(noticiasRes.data);
+      if (testimonialsRes.data) setTestimonials(testimonialsRes.data);
       if (historyRes.data) setHistory(historyRes.data);
       if (settingsRes.data) setSettings(settingsRes.data);
       if (contatosRes.data) setContatos(contatosRes.data);
@@ -679,6 +698,82 @@ export default function Dashboard() {
       triggerToast(error ? `Erro: ${error.message}` : 'Erro ao recusar currículo.', 'error');
     }
   }, [candidates]);
+
+  const approveTestimonial = React.useCallback(async (id: string | number) => {
+    const testimonial = testimonials.find(t => String(t.id) === String(id));
+    if (!testimonial) return;
+
+    const { data, error } = await supabase
+      .from('testimonials')
+      .update({ status: 'approved' })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (!error && data) {
+      setTestimonials(prev => prev.map(t => String(t.id) === String(id) ? data : t));
+      triggerToast('Depoimento aprovado!');
+      
+      const historyEntry = {
+        action: 'Depoimento Aprovado',
+        details: `Depoimento de "${testimonial.name}" foi aprovado.`
+      };
+      const { data: hData } = await supabase.from('history').insert(historyEntry).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+    } else {
+      triggerToast(error ? error.message : 'Erro ao aprovar depoimento', 'error');
+    }
+  }, [testimonials]);
+
+  const rejectTestimonial = React.useCallback(async (id: string | number) => {
+    const testimonial = testimonials.find(t => String(t.id) === String(id));
+    if (!testimonial) return;
+
+    const { data, error } = await supabase
+      .from('testimonials')
+      .update({ status: 'rejected' })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (!error && data) {
+      setTestimonials(prev => prev.map(t => String(t.id) === String(id) ? data : t));
+      triggerToast('Depoimento recusado.');
+      
+      const historyEntry = {
+        action: 'Depoimento Recusado',
+        details: `Depoimento de "${testimonial.name}" foi recusado.`
+      };
+      const { data: hData } = await supabase.from('history').insert(historyEntry).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+    } else {
+      triggerToast(error ? error.message : 'Erro ao recusar depoimento', 'error');
+    }
+  }, [testimonials]);
+
+  const deleteTestimonial = React.useCallback(async (id: string | number) => {
+    const testimonial = testimonials.find(t => String(t.id) === String(id));
+    if (!testimonial) return;
+
+    const { error } = await supabase
+      .from('testimonials')
+      .delete()
+      .eq('id', id);
+
+    if (!error) {
+      setTestimonials(prev => prev.filter(t => String(t.id) !== String(id)));
+      triggerToast('Depoimento removido.');
+      
+      const historyEntry = {
+        action: 'Depoimento Removido',
+        details: `Depoimento de "${testimonial.name}" foi removido manualmente.`
+      };
+      const { data: hData } = await supabase.from('history').insert(historyEntry).select().single();
+      if (hData) setHistory(prev => [hData, ...prev]);
+    } else {
+      triggerToast(`Erro ao deletar: ${error.message}`, 'error');
+    }
+  }, [testimonials]);
 
   const addJob = React.useCallback(async (newJob: Partial<Job>) => {
     const jobData = {
@@ -1414,6 +1509,125 @@ export default function Dashboard() {
                     </tbody>
                   </table>
                 </div>
+              </motion.div>
+            )}
+
+            {activeView === 'depoimentos' && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-8"
+              >
+                <header className="flex justify-between items-end">
+                  <div>
+                    <h1 className="text-3xl font-extrabold text-primary tracking-tight font-headline">Depoimentos Pendentes</h1>
+                    <p className="text-on-surface-variant mt-1">Gerencie os depoimentos enviados pela comunidade para o site.</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="px-4 py-2 bg-primary/10 text-primary font-bold rounded-full text-xs flex items-center gap-2">
+                       {testimonials.filter(t => t.status === 'pending').length} Pendentes
+                    </span>
+                  </div>
+                </header>
+
+                <div className="grid grid-cols-1 gap-6">
+                  {testimonials.filter(t => t.status === 'pending').map((t) => (
+                    <div key={t.id} className="bg-white p-6 rounded-3xl border border-outline-variant/10 shadow-sm flex flex-col md:flex-row gap-6">
+                      <div className="shrink-0">
+                        <div className="w-16 h-16 rounded-full overflow-hidden bg-surface-container border-2 border-primary/20">
+                          {t.photo_url ? (
+                            <Image src={t.photo_url} alt={t.name} width={64} height={64} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-outline-variant">
+                              <User className="w-8 h-8" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex-1 space-y-4">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                          <div>
+                            <h3 className="text-lg font-bold text-on-surface">{t.name}</h3>
+                            <p className="text-sm text-primary font-medium">{t.role} {t.company && `em ${t.company}`}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button 
+                              onClick={() => approveTestimonial(t.id)}
+                              className="px-4 py-2 bg-tertiary text-on-tertiary rounded-xl font-bold text-xs shadow-md shadow-tertiary/20 hover:scale-105 transition-all flex items-center gap-2"
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                              Aprovar
+                            </button>
+                            <button 
+                              onClick={() => rejectTestimonial(t.id)}
+                              className="px-4 py-2 bg-error text-on-error rounded-xl font-bold text-xs shadow-md shadow-error/20 hover:scale-105 transition-all flex items-center gap-2"
+                            >
+                              <XCircle className="w-4 h-4" />
+                              Recusar
+                            </button>
+                          </div>
+                        </div>
+                        <div className="bg-surface-container-low p-4 rounded-2xl italic text-on-surface-variant text-sm border border-outline-variant/5">
+                          &quot;{t.content}&quot;
+                        </div>
+                        <div className="flex justify-end pt-2">
+                           <button 
+                             onClick={() => deleteTestimonial(t.id)}
+                             className="text-xs font-bold text-error hover:underline flex items-center gap-1"
+                           >
+                             <Trash2 className="w-3 h-3" />
+                             Excluir Permanentemente
+                           </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {testimonials.filter(t => t.status === 'pending').length === 0 && (
+                    <div className="py-20 text-center bg-white rounded-3xl border border-dashed border-outline-variant/30">
+                       <Quote className="w-12 h-12 text-outline-variant mx-auto mb-4 opacity-50" />
+                       <p className="text-on-surface-variant font-bold">Nenhum depoimento aguardando aprovação.</p>
+                    </div>
+                  )}
+                </div>
+
+                {testimonials.filter(t => t.status === 'approved').length > 0 && (
+                   <div className="mt-12 space-y-6">
+                      <h2 className="text-xl font-bold text-on-surface flex items-center gap-2 px-2">
+                        <CheckCircle2 className="w-5 h-5 text-tertiary" />
+                        Depoimentos Aprovados
+                      </h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {testimonials.filter(t => t.status === 'approved').map((t) => (
+                          <div key={t.id} className="bg-white p-5 rounded-2xl border border-outline-variant/10 shadow-sm flex gap-4">
+                             <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 border border-primary/10">
+                                {t.photo_url ? (
+                                  <Image src={t.photo_url} alt={t.name} width={48} height={48} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full bg-surface-container flex items-center justify-center text-outline-variant">
+                                    <User className="w-6 h-6" />
+                                  </div>
+                                )}
+                             </div>
+                             <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-start gap-2">
+                                  <div className="truncate">
+                                    <p className="font-bold text-on-surface truncate">{t.name}</p>
+                                    <p className="text-[10px] text-primary font-medium truncate">{t.role} {t.company && `em ${t.company}`}</p>
+                                  </div>
+                                  <button 
+                                    onClick={() => deleteTestimonial(t.id)}
+                                    className="p-1.5 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-lg transition-all"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                                <p className="text-xs text-on-surface-variant mt-2 line-clamp-2 italic">&quot;{t.content}&quot;</p>
+                             </div>
+                          </div>
+                        ))}
+                      </div>
+                   </div>
+                )}
               </motion.div>
             )}
 
