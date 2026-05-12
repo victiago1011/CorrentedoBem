@@ -9,7 +9,10 @@ import {
   User, 
   Loader2,
   Handshake,
-  MessageSquare
+  MessageSquare,
+  Instagram,
+  Linkedin,
+  Twitter
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -149,6 +152,52 @@ export default function TestimonialsPage() {
            </div>
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="bg-[#f0eded] py-20 pb-12">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-20">
+            <div className="col-span-1 lg:col-span-2">
+              <Link href="/" className="flex items-center gap-3 mb-8">
+                <div className="w-10 h-10 bg-[#00628c] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#00628c]/20">
+                  <Handshake className="w-6 h-6" />
+                </div>
+                <span className="text-2xl font-black text-[#1a2b3b] tracking-tighter">Corrente do Bem</span>
+              </Link>
+              <p className="text-[#3e4850] text-lg lg:text-xl opacity-60 leading-relaxed max-w-md">
+                Unindo talentos e empresas através de conexões genuínas e respeito mútuo.
+              </p>
+            </div>
+            <div>
+              <h4 className="text-xs font-black uppercase tracking-widest text-[#00628c] mb-8">Navegação</h4>
+              <ul className="space-y-4">
+                <li><Link href="/vagas" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Vagas</Link></li>
+                <li><Link href="/talentos" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Currículos</Link></li>
+                <li><Link href="/negocios" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Negócios</Link></li>
+                <li><Link href="/noticias" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Notícias</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-xs font-black uppercase tracking-widest text-[#00628c] mb-8">Legal</h4>
+              <ul className="space-y-4">
+                <li><Link href="#" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Privacidade</Link></li>
+                <li><Link href="#" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Termos de Uso</Link></li>
+                <li><Link href="#" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Cookies</Link></li>
+              </ul>
+            </div>
+          </div>
+          <div className="pt-12 border-t border-[#00628c]/5 flex flex-col md:flex-row justify-between items-center gap-6">
+            <p className="text-sm font-bold text-[#3e4850]/40 uppercase tracking-widest">
+              © 2024 Corrente do Bem. Todos os direitos reservados.
+            </p>
+            <div className="flex gap-8">
+              <Link href="#" className="text-[#3e4850]/40 hover:text-[#00628c] transition-all"><span className="sr-only">Instagram</span><Instagram className="w-6 h-6" /></Link>
+              <Link href="#" className="text-[#3e4850]/40 hover:text-[#00628c] transition-all"><span className="sr-only">LinkedIn</span><Linkedin className="w-6 h-6" /></Link>
+              <Link href="#" className="text-[#3e4850]/40 hover:text-[#00628c] transition-all"><span className="sr-only">Twitter</span><Twitter className="w-6 h-6" /></Link>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

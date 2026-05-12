@@ -34,6 +34,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { cn, ensureExternalLink, stripHtml } from '@/lib/utils';
 import { Navbar } from '@/app/components/Navbar';
+import { Footer } from '@/app/components/Footer';
 
 // Helper component for candidate images with error fallback
 const CandidateAvatar = ({ src, name, className = "object-cover" }: { src?: string; name: string; className?: string }) => {
@@ -848,7 +849,7 @@ export default function LandingPage() {
               </div>
               <div className="relative">
                 <div className="bg-white rounded-[3rem] p-4 shadow-2xl relative z-10 border border-[#bec8d1]/10">
-                  <div className="relative h-[600px] w-full rounded-[2.5rem] overflow-hidden">
+                  <div className="relative h-[300px] lg:h-[600px] w-full rounded-[2.5rem] overflow-hidden text-left">
                     <Image 
                       alt="Ambiente Colaborativo" 
                       className="object-cover" 
@@ -969,44 +970,7 @@ export default function LandingPage() {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-[#f0eded] py-16">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12 text-left">
-            <div className="col-span-1 lg:col-span-2">
-              <Link href="/" className="flex items-center gap-2 mb-6">
-                <div className="w-8 h-8 bg-[#00628c] rounded-lg flex items-center justify-center text-white">
-                  <Handshake className="w-5 h-5" />
-                </div>
-                <span className="text-xl font-bold text-[#00628c] font-headline">Corrente do Bem</span>
-              </Link>
-              <p className="text-[#3e4850] max-w-md leading-relaxed">
-                Transformando a busca por emprego em uma jornada de respeito e conexões verdadeiras. Conectando carreiras com dignidade.
-              </p>
-            </div>
-            <div>
-              <h4 className="text-xs font-black uppercase tracking-widest text-[#00628c] mb-6 text-left">Empresa</h4>
-              <ul className="space-y-4 text-left">
-                <li><Link href="/#sobre-nos" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Sobre Nós</Link></li>
-                <li><Link href="/privacidade" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Privacidade</Link></li>
-                <li><Link href="/termos" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Termos de Uso</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-xs font-black uppercase tracking-widest text-[#00628c] mb-6 text-left">Suporte</h4>
-              <ul className="space-y-4 text-left">
-                <li><Link href="/contato" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Contato</Link></li>
-                <li><Link href="/#como-funciona" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Ajuda</Link></li>
-              </ul>
-            </div>
-          </div>
-          <div className="pt-8 border-t border-[#bec8d1]/30 text-center">
-            <p className="text-xs font-bold text-[#6f7881] uppercase tracking-widest text-center">
-              © 2024 Corrente do Bem. Todos os direitos reservados.
-            </p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

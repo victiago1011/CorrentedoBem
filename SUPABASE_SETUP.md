@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS public.vagas (
   phone text,
   site_url text,
   attachment_url text,
+  logo_url text,
   type text not null,
   area text not null default 'Outros',
   salary text,
@@ -26,6 +27,8 @@ CREATE TABLE IF NOT EXISTS public.vagas (
 CREATE TABLE IF NOT EXISTS public.talentos (
   id uuid default gen_random_uuid() primary key,
   name text not null,
+  email text,
+  phone text,
   location text,
   area text not null,
   role text,
@@ -43,14 +46,18 @@ CREATE TABLE IF NOT EXISTS public.negocios (
   id uuid default gen_random_uuid() primary key,
   title text not null,
   owner_name text not null,
-  location text,
-  area text,
-  description text,
+  contact_name text,
   contact_email text,
   contact_phone text,
-  attachment_url text,
+  location text,
+  link text,
+  logo_url text,
   type text,
+  area text,
+  description text,
+  attachment_url text,
   status text default 'pending',
+  verified boolean default false,
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
@@ -70,6 +77,7 @@ CREATE TABLE IF NOT EXISTS public.noticias (
   content text not null,
   excerpt text,
   image_url text,
+  attachment_url text,
   author text,
   category text,
   status text default 'pending', -- pending, active, archived
@@ -256,3 +264,27 @@ CREATE POLICY "Public Delete Testimonials" ON public.testimonials FOR DELETE USI
 -- ==========================================
 -- DROP TABLE public.jobs;
 -- DROP TABLE public.candidates;
+
+-- ==========================================
+-- 7. CORREÇÃO RÁPIDA (CASO JÁ TENHA AS TABELAS)
+-- ==========================================
+-- Se você já criou as tabelas e está tendo erro de "column not found" no cadastro,
+-- execute este bloco de SQL no seu SQL Editor do Supabase:
+
+/*
+-- Adicionar colunas faltantes na tabela de Negócios
+ALTER TABLE public.negocios ADD COLUMN IF NOT EXISTS contact_name text;
+ALTER TABLE public.negocios ADD COLUMN IF NOT EXISTS link text;
+ALTER TABLE public.negocios ADD COLUMN IF NOT EXISTS logo_url text;
+ALTER TABLE public.negocios ADD COLUMN IF NOT EXISTS verified boolean default false;
+
+-- Adicionar coluna faltante na tabela de Vagas
+ALTER TABLE public.vagas ADD COLUMN IF NOT EXISTS logo_url text;
+
+-- Adicionar colunas faltantes na tabela de Talentos
+ALTER TABLE public.talentos ADD COLUMN IF NOT EXISTS email text;
+ALTER TABLE public.talentos ADD COLUMN IF NOT EXISTS phone text;
+
+-- Adicionar coluna faltante na tabela de Notícias
+ALTER TABLE public.noticias ADD COLUMN IF NOT EXISTS attachment_url text;
+*/

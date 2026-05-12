@@ -69,7 +69,7 @@ export function Navbar() {
 
   return (
     <>
-      <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-[#bec8d1]/10">
+      <nav className="fixed top-0 w-full z-50 bg-[#f1f5f9]/90 backdrop-blur-md border-b border-[#bec8d1]/10">
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-20 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 group">
             <div className="w-8 h-8 md:w-10 md:h-10 bg-[#00628c] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#00628c]/20 group-hover:scale-110 transition-transform">
@@ -116,7 +116,7 @@ export function Navbar() {
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setIsRegisterModalOpen(true)}
-              className="px-6 py-2.5 bg-[#00628c] text-white font-bold rounded-full shadow-lg shadow-[#00628c]/20 hover:scale-95 transition-transform text-sm"
+              className="hidden lg:block px-6 py-2.5 bg-[#00628c] text-white font-bold rounded-full shadow-lg shadow-[#00628c]/20 hover:scale-95 transition-transform text-sm"
             >
               Cadastrar-se
             </button>
@@ -200,38 +200,40 @@ export function Navbar() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden p-8 md:p-12"
+              className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden p-6 md:p-12"
             >
               <button 
                 onClick={() => setIsRegisterModalOpen(false)}
-                className="absolute top-6 right-6 p-2 bg-[#f6f3f2] rounded-full text-[#3e4850] hover:bg-[#00628c] hover:text-white transition-all"
+                className="absolute top-4 right-4 md:top-6 md:right-6 p-2 bg-[#f6f3f2] rounded-full text-[#3e4850] hover:bg-[#00628c] hover:text-white transition-all z-10"
               >
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="text-center mb-10">
-                <h2 className="text-2xl md:text-3xl font-black text-[#00628c] font-headline mb-4">O que você gostaria de cadastrar?</h2>
-                <p className="text-[#3e4850] font-medium">Escolha uma categoria para começar sua jornada na Corrente do Bem.</p>
+              <div className="text-center mb-6 md:mb-10">
+                <h2 className="text-xl md:text-3xl font-black text-[#00628c] font-headline mb-2 md:mb-4">O que você gostaria de cadastrar?</h2>
+                <p className="text-sm md:text-base text-[#3e4850] font-medium leading-tight">Escolha uma categoria para começar sua jornada.</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
                 {registerOptions.map((opt) => (
                   <Link
                     key={opt.title}
                     href={opt.href}
                     onClick={() => setIsRegisterModalOpen(false)}
-                    className="flex flex-col items-center text-center p-6 rounded-[2rem] border-2 border-transparent hover:border-[#00628c]/20 hover:bg-[#f6f3f2] transition-all group active:scale-95"
+                    className="flex flex-row md:flex-col items-center text-left md:text-center p-4 md:p-6 rounded-[2rem] border-2 border-transparent hover:border-[#00628c]/20 hover:bg-[#f6f3f2] transition-all group active:scale-95"
                   >
-                    <div className={cn("w-20 h-20 rounded-3xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110", opt.color)}>
-                      {opt.icon}
+                    <div className={cn("w-14 h-14 md:w-20 md:h-20 shrink-0 rounded-2xl md:rounded-3xl flex items-center justify-center mb-0 md:mb-4 mr-4 md:mr-0 transition-transform group-hover:scale-110", opt.color)}>
+                      {React.cloneElement(opt.icon as React.ReactElement<{ className?: string }>, { className: "w-6 h-6 md:w-8 md:h-8" })}
                     </div>
-                    <h3 className="text-lg font-black text-[#00628c] mb-2">{opt.title}</h3>
-                    <p className="text-xs text-[#6f7881] font-medium leading-relaxed">{opt.desc}</p>
+                    <div>
+                      <h3 className="text-base md:text-lg font-black text-[#00628c] mb-0 md:mb-2">{opt.title}</h3>
+                      <p className="text-[10px] md:text-xs text-[#6f7881] font-medium leading-relaxed">{opt.desc}</p>
+                    </div>
                   </Link>
                 ))}
               </div>
 
-              <div className="mt-10 pt-8 border-t border-[#bec8d1]/10 text-center">
+              <div className="mt-6 md:mt-10 pt-6 md:pt-8 border-t border-[#bec8d1]/10 text-center">
                 <p className="text-xs text-[#6f7881] font-medium italic">
                   Todos os cadastros passam por uma breve revisão da nossa equipe para garantir a segurança da comunidade.
                 </p>

@@ -20,6 +20,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { Navbar } from '@/app/components/Navbar';
+import { Footer } from '@/app/components/Footer';
 import { cn } from '@/lib/utils';
 
 interface Noticia {
@@ -98,30 +99,30 @@ export default function NoticiasPage() {
       <Navbar />
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-12 bg-white">
+      <section className="relative pt-32 pb-12 bg-[#fafafa] border-b border-gray-100">
         <div className="container mx-auto px-4 md:px-6 relative z-10">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-gray-100 pb-12"
+            className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8"
           >
             <div className="max-w-2xl">
-              <h1 className="text-4xl lg:text-6xl font-black text-[#1a2b3b] mb-4 leading-tight tracking-[calc(1.5*-0.02em)]">
+              <h1 className="text-3xl lg:text-5xl font-black text-[#1a2b3b] mb-3 leading-tight tracking-tight">
                 Notícias
               </h1>
-              <p className="text-lg text-[#3e4850] opacity-60">
+              <p className="text-base lg:text-lg text-[#3e4850] opacity-70">
                 Últimas atualizações, eventos e histórias de impacto na Corrente do Bem.
               </p>
             </div>
 
-            <div className="relative w-full md:w-96">
+            <div className="relative w-full md:w-80">
               <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-[#3e4850]/40 w-4 h-4" />
               <input 
                 type="text"
                 placeholder="Buscar notícias..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-6 py-4 bg-[#f8fafc] border-transparent rounded-2xl focus:bg-white focus:border-[#00628c]/20 focus:ring-4 focus:ring-[#00628c]/5 focus:outline-none transition-all text-sm font-bold"
+                className="w-full pl-12 pr-6 py-3 bg-white border border-gray-100 rounded-2xl focus:border-[#00628c]/20 focus:ring-4 focus:ring-[#00628c]/5 focus:outline-none transition-all text-sm font-bold shadow-sm"
               />
             </div>
           </motion.div>
@@ -164,10 +165,10 @@ export default function NoticiasPage() {
                         </div>
                       </div>
                       <div className="p-8 lg:p-10">
-                        <h2 className="text-3xl lg:text-5xl font-black text-[#1a2b3b] leading-tight mb-4 group-hover:text-[#00628c] transition-colors">
+                        <h2 className="text-2xl lg:text-4xl font-black text-[#1a2b3b] leading-tight mb-4 group-hover:text-[#00628c] transition-colors">
                           {highlights[0].title}
                         </h2>
-                        <p className="text-[#3e4850] text-lg lg:text-xl opacity-60 line-clamp-2 leading-relaxed">
+                        <p className="text-[#3e4850] text-base lg:text-lg opacity-70 line-clamp-2 leading-relaxed">
                           {highlights[0].excerpt || highlights[0].content.substring(0, 180).trim() + '...'}
                         </p>
                       </div>
@@ -330,51 +331,7 @@ export default function NoticiasPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-100 py-20 pb-12">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-20">
-            <div className="col-span-1 lg:col-span-2">
-              <Link href="/" className="flex items-center gap-3 mb-8">
-                <div className="w-10 h-10 bg-[#00628c] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#00628c]/20">
-                  <Handshake className="w-6 h-6" />
-                </div>
-                <span className="text-2xl font-black text-[#1a2b3b] tracking-tighter">Corrente do Bem</span>
-              </Link>
-              <p className="text-[#3e4850] text-lg lg:text-xl opacity-60 leading-relaxed max-w-md">
-                Unindo talentos e empresas através de conexões genuínas e respeito mútuo.
-              </p>
-            </div>
-            <div>
-              <h4 className="text-xs font-black uppercase tracking-widest text-[#00628c] mb-8">Navegação</h4>
-              <ul className="space-y-4">
-                <li><Link href="/vagas" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Vagas</Link></li>
-                <li><Link href="/talentos" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Currículos</Link></li>
-                <li><Link href="/negocios" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Negócios</Link></li>
-                <li><Link href="/noticias" className="text-lg text-[#00628c] transition-colors font-black">Notícias</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-xs font-black uppercase tracking-widest text-[#00628c] mb-8">Legal</h4>
-              <ul className="space-y-4">
-                <li><Link href="#" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Privacidade</Link></li>
-                <li><Link href="#" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Termos de Uso</Link></li>
-                <li><Link href="#" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Cookies</Link></li>
-              </ul>
-            </div>
-          </div>
-          <div className="pt-12 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-6">
-            <p className="text-sm font-bold text-[#3e4850]/40 uppercase tracking-widest">
-              © 2024 Corrente do Bem. Todos os direitos reservados.
-            </p>
-            <div className="flex gap-8">
-              <Link href="#" className="text-[#3e4850]/40 hover:text-[#00628c] transition-all"><span className="sr-only">Instagram</span><Instagram className="w-6 h-6" /></Link>
-              <Link href="#" className="text-[#3e4850]/40 hover:text-[#00628c] transition-all"><span className="sr-only">LinkedIn</span><Linkedin className="w-6 h-6" /></Link>
-              <Link href="#" className="text-[#3e4850]/40 hover:text-[#00628c] transition-all"><span className="sr-only">Twitter</span><Twitter className="w-6 h-6" /></Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

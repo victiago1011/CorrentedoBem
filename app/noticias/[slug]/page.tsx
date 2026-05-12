@@ -27,6 +27,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import ReactMarkdown from 'react-markdown';
 import { Navbar } from '@/app/components/Navbar';
+import { Footer } from '@/app/components/Footer';
 import { cn } from '@/lib/utils';
 
 interface Noticia {
@@ -144,13 +145,13 @@ export default function NoticiaDetailPage() {
           </div>
 
           {/* Headline */}
-          <h1 className="text-3xl md:text-5xl lg:text-5xl font-black text-[#1a2b3b] leading-[1.1] mb-6 tracking-tight">
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-[#1a2b3b] leading-[1.1] mb-6 tracking-tight">
             {noticia.title}
           </h1>
 
           {/* Subtitle / Excerpt */}
           {noticia.excerpt && (
-            <p className="text-lg md:text-xl text-gray-500 font-medium leading-relaxed mb-8">
+            <p className="text-base md:text-lg text-gray-500 font-medium leading-relaxed mb-8">
               {noticia.excerpt}
             </p>
           )}
@@ -257,63 +258,22 @@ export default function NoticiaDetailPage() {
 
       {/* Styled JSX for content consistency */}
       <style jsx global>{`
-        .news-content p { margin-bottom: 2rem; font-size: 1.25rem; }
+        .news-content p { margin-bottom: 1.5rem; font-size: 1.125rem; }
         @media (max-width: 768px) {
-          .news-content p { font-size: 1.125rem; }
+          .news-content p { font-size: 1rem; }
         }
-        .news-content h2 { font-size: 2rem; margin-top: 3rem; margin-bottom: 1.5rem; font-weight: 900; line-height: 1.2; }
-        .news-content h3 { font-size: 1.5rem; margin-top: 2.5rem; margin-bottom: 1rem; font-weight: 800; }
-        .news-content blockquote { border-left-width: 4px; border-color: #00628c; padding-left: 1.5rem; font-style: italic; color: #4b5563; font-weight: 500; margin: 3rem 0; }
-        .news-content ul, .news-content ol { padding-left: 1.5rem; margin-bottom: 2rem; }
-        .news-content li { margin-bottom: 0.75rem; }
-        .news-content img { border-radius: 0.75rem; margin: 3rem 0; }
+        .news-content h2 { font-size: 1.5rem; margin-top: 2.5rem; margin-bottom: 1rem; font-weight: 900; line-height: 1.2; }
+        .news-content h3 { font-size: 1.25rem; margin-top: 2rem; margin-bottom: 0.75rem; font-weight: 800; }
+        .news-content blockquote { border-left-width: 4px; border-color: #00628c; padding-left: 1.5rem; font-style: italic; color: #4b5563; font-weight: 500; margin: 2rem 0; }
+        .news-content ul, .news-content ol { padding-left: 1.5rem; margin-bottom: 1.5rem; }
+        .news-content li { margin-bottom: 0.5rem; font-size: 1.125rem; }
+        @media (max-width: 768px) {
+          .news-content li { font-size: 1rem; }
+        }
+        .news-content img { border-radius: 0.75rem; margin: 2rem 0; }
       `}</style>
 
-      {/* Footer from listing page for consistency */}
-      <footer className="bg-white border-t border-gray-100 py-20 pb-12">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-20">
-            <div className="col-span-1 lg:col-span-2">
-              <Link href="/" className="flex items-center gap-3 mb-8">
-                <div className="w-10 h-10 bg-[#00628c] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#00628c]/20">
-                  <Handshake className="w-6 h-6" />
-                </div>
-                <span className="text-2xl font-black text-[#1a2b3b] tracking-tighter">Corrente do Bem</span>
-              </Link>
-              <p className="text-[#3e4850] text-lg lg:text-xl opacity-60 leading-relaxed max-w-md">
-                Unindo talentos e empresas através de conexões genuínas e respeito mútuo.
-              </p>
-            </div>
-            <div>
-              <h4 className="text-xs font-black uppercase tracking-widest text-[#00628c] mb-8">Navegação</h4>
-              <ul className="space-y-4">
-                <li><Link href="/vagas" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Vagas</Link></li>
-                <li><Link href="/talentos" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Currículos</Link></li>
-                <li><Link href="/negocios" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Negócios</Link></li>
-                <li><Link href="/noticias" className="text-lg text-[#00628c] transition-colors font-black">Notícias</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-xs font-black uppercase tracking-widest text-[#00628c] mb-8">Legal</h4>
-              <ul className="space-y-4">
-                <li><Link href="#" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Privacidade</Link></li>
-                <li><Link href="#" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Termos de Uso</Link></li>
-                <li><Link href="#" className="text-lg text-[#3e4850]/60 hover:text-[#00628c] transition-colors font-bold">Cookies</Link></li>
-              </ul>
-            </div>
-          </div>
-          <div className="pt-12 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-6">
-            <p className="text-sm font-bold text-[#3e4850]/40 uppercase tracking-widest">
-              © 2024 Corrente do Bem. Todos os direitos reservados.
-            </p>
-            <div className="flex gap-8">
-              <Link href="#" className="text-[#3e4850]/40 hover:text-[#00628c] transition-all"><span className="sr-only">Instagram</span><Instagram className="w-6 h-6" /></Link>
-              <Link href="#" className="text-[#3e4850]/40 hover:text-[#00628c] transition-all"><span className="sr-only">LinkedIn</span><Linkedin className="w-6 h-6" /></Link>
-              <Link href="#" className="text-[#3e4850]/40 hover:text-[#00628c] transition-all"><span className="sr-only">Twitter</span><Twitter className="w-6 h-6" /></Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

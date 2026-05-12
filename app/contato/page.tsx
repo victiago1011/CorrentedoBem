@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { Navbar } from '@/app/components/Navbar';
-import { Mail, MessageSquare, Send, ArrowLeft, CheckCircle2, User, Sparkles } from 'lucide-react';
+import { Footer } from '@/app/components/Footer';
+import { Mail, MessageSquare, Send, ArrowLeft, CheckCircle2, User, Sparkles, Handshake, Instagram, Linkedin, Twitter } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/lib/supabase';
@@ -221,6 +222,8 @@ export default function ContatoPage() {
           </div>
         </div>
       </div>
+      
+      <Footer />
     </main>
   );
 }

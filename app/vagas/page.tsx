@@ -11,6 +11,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  ChevronDown,
   Filter,
   X,
   CreditCard,
@@ -34,6 +35,7 @@ import { cn, ensureExternalLink, stripHtml } from '@/lib/utils';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Navbar } from '@/app/components/Navbar';
+import { Footer } from '@/app/components/Footer';
 
 interface Job {
   id: string;
@@ -64,6 +66,7 @@ function VagasContent() {
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isFiltersVisible, setIsFiltersVisible] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const itemsPerPage = 6;
 
@@ -189,69 +192,104 @@ function VagasContent() {
 
         <div className="flex flex-col lg:flex-row gap-12">
           {/* Sidebar Filters */}
-          <aside className="w-full lg:w-72 space-y-10">
-            <div>
-              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-[#3e4850] mb-6">Categorias</h3>
-              <div className="space-y-2">
-                {categories.map((cat) => (
-                  <button
-                    key={cat.name}
-                    onClick={() => setSelectedCategory(cat.name)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${
-                      selectedCategory === cat.name 
-                        ? 'bg-[#00628c] text-white shadow-lg shadow-[#00628c]/20' 
-                        : 'bg-[#f6f3f2] text-[#3e4850] hover:bg-[#f0eded]'
-                    }`}
-                  >
-                    <span className={selectedCategory === cat.name ? 'text-white' : 'text-[#00628c]'}>{cat.icon}</span>
-                    <span className="text-sm font-bold">{cat.name}</span>
-                  </button>
-                ))}
+          <aside className="w-full lg:w-72">
+            {/* Mobile Filter Toggle */}
+            <button 
+              onClick={() => setIsFiltersVisible(!isFiltersVisible)}
+              className="lg:hidden w-full flex items-center justify-between p-4 bg-white rounded-2xl border border-[#bec8d1]/20 mb-4 shadow-sm"
+            >
+              <div className="flex items-center gap-2 text-[#00628c] font-black uppercase text-xs tracking-widest">
+                <Filter className="w-4 h-4" />
+                <span>Filtrar Vagas</span>
               </div>
-            </div>
+              <motion.div
+                animate={{ rotate: isFiltersVisible ? 180 : 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <ChevronDown className="w-5 h-5 text-[#6f7881]" />
+              </motion.div>
+            </button>
 
-            <div>
-              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-[#3e4850] mb-6">Disponibilidade</h3>
-              <div className="space-y-4">
-                {['Remoto', 'Presencial', 'Híbrido'].map((type) => (
-                  <label key={type} className="flex items-center gap-3 cursor-pointer group">
-                    <input 
-                      type="checkbox" 
-                      className="w-5 h-5 rounded border-[#bec8d1] text-[#00628c] focus:ring-[#00628c]/20" 
-                      checked={selectedTypes.includes(type)}
-                      onChange={() => toggleType(type)}
-                    />
-                    <span className="text-sm font-medium text-[#3e4850] group-hover:text-[#00628c] transition-colors">{type}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
+            <AnimatePresence>
+              {(isFiltersVisible || (typeof window !== 'undefined' && window.innerWidth >= 1024)) && (
+                <motion.div
+                  initial={typeof window !== 'undefined' && window.innerWidth < 1024 ? { height: 0, opacity: 0 } : false}
+                  animate={{ 
+                    height: 'auto', 
+                    opacity: 1,
+                    transition: { duration: 0.3 }
+                  }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="space-y-10 overflow-hidden lg:block"
+                >
+                  <div className="pt-2 lg:pt-0">
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-[#3e4850] mb-6">Categorias</h3>
+                    <div className="space-y-2">
+                      {categories.map((cat) => (
+                        <button
+                          key={cat.name}
+                          onClick={() => {
+                            setSelectedCategory(cat.name);
+                            if (window.innerWidth < 1024) setIsFiltersVisible(false);
+                          }}
+                          className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${
+                            selectedCategory === cat.name 
+                              ? 'bg-[#00628c] text-white shadow-lg shadow-[#00628c]/20' 
+                              : 'bg-[#f6f3f2] text-[#3e4850] hover:bg-[#f0eded]'
+                          }`}
+                        >
+                          <span className={selectedCategory === cat.name ? 'text-white' : 'text-[#00628c]'}>{cat.icon}</span>
+                          <span className="text-sm font-bold">{cat.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-            <div>
-              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-[#3e4850] mb-6">Nível de Experiência</h3>
-              <div className="space-y-4">
-                {['Estágio', 'Júnior', 'Pleno/Sênior'].map((level) => (
-                  <label key={level} className="flex items-center gap-3 cursor-pointer group">
-                    <input 
-                      type="radio" 
-                      name="level" 
-                      className="w-5 h-5 border-[#bec8d1] text-[#00628c] focus:ring-[#00628c]/20" 
-                      checked={selectedLevel === level}
-                      onChange={() => setSelectedLevel(level)}
-                    />
-                    <span className="text-sm font-medium text-[#3e4850] group-hover:text-[#00628c] transition-colors">{level}</span>
-                  </label>
-                ))}
-                {selectedLevel && (
-                  <button 
-                    onClick={() => setSelectedLevel(null)}
-                    className="text-[10px] font-bold text-[#00628c] uppercase tracking-wider hover:underline"
-                  >
-                    Limpar Nível
-                  </button>
-                )}
-              </div>
-            </div>
+                  <div>
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-[#3e4850] mb-6">Disponibilidade</h3>
+                    <div className="space-y-4">
+                      {['Remoto', 'Presencial', 'Híbrido'].map((type) => (
+                        <label key={type} className="flex items-center gap-3 cursor-pointer group">
+                          <input 
+                            type="checkbox" 
+                            className="w-5 h-5 rounded border-[#bec8d1] text-[#00628c] focus:ring-[#00628c]/20" 
+                            checked={selectedTypes.includes(type)}
+                            onChange={() => toggleType(type)}
+                          />
+                          <span className="text-sm font-medium text-[#3e4850] group-hover:text-[#00628c] transition-colors">{type}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-[#3e4850] mb-6">Nível de Experiência</h3>
+                    <div className="space-y-4">
+                      {['Estágio', 'Júnior', 'Pleno/Sênior'].map((level) => (
+                        <label key={level} className="flex items-center gap-3 cursor-pointer group">
+                          <input 
+                            type="radio" 
+                            name="level" 
+                            className="w-5 h-5 border-[#bec8d1] text-[#00628c] focus:ring-[#00628c]/20" 
+                            checked={selectedLevel === level}
+                            onChange={() => setSelectedLevel(level)}
+                          />
+                          <span className="text-sm font-medium text-[#3e4850] group-hover:text-[#00628c] transition-colors">{level}</span>
+                        </label>
+                      ))}
+                      {selectedLevel && (
+                        <button 
+                          onClick={() => setSelectedLevel(null)}
+                          className="text-[10px] font-bold text-[#00628c] uppercase tracking-wider hover:underline"
+                        >
+                          Limpar Nível
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </aside>
 
           {/* Jobs Grid */}
@@ -539,44 +577,7 @@ function VagasContent() {
         )}
       </AnimatePresence>
 
-      {/* Footer */}
-      <footer className="bg-[#f0eded] py-16">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
-            <div className="col-span-1 lg:col-span-2">
-              <Link href="/" className="flex items-center gap-2 mb-6">
-                <div className="w-8 h-8 bg-[#00628c] rounded-lg flex items-center justify-center text-white">
-                  <Handshake className="w-5 h-5" />
-                </div>
-                <span className="text-xl font-bold text-[#00628c] font-headline">Corrente do Bem</span>
-              </Link>
-              <p className="text-[#3e4850] max-w-md leading-relaxed">
-                Transformando a busca por emprego em uma jornada de respeito e conexões verdadeiras. Conectando carreiras com dignidade.
-              </p>
-            </div>
-            <div>
-              <h4 className="text-xs font-black uppercase tracking-widest text-[#00628c] mb-6">Empresa</h4>
-              <ul className="space-y-4">
-                <li><Link href="#" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Sobre Nós</Link></li>
-                <li><Link href="#" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Privacidade</Link></li>
-                <li><Link href="#" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Termos de Uso</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-xs font-black uppercase tracking-widest text-[#00628c] mb-6">Suporte</h4>
-              <ul className="space-y-4">
-                <li><Link href="#" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Contato</Link></li>
-                <li><Link href="#" className="text-[#3e4850] hover:text-[#00628c] transition-colors">Ajuda</Link></li>
-              </ul>
-            </div>
-          </div>
-          <div className="pt-8 border-t border-[#bec8d1]/30 text-center">
-            <p className="text-xs font-bold text-[#6f7881] uppercase tracking-widest">
-              © 2024 Corrente do Bem. Todos os direitos reservados.
-            </p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
