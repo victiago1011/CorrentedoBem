@@ -45,12 +45,14 @@ import {
   Upload,
   Maximize2,
   Minimize2,
-  User
+  User,
+  LogOut
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, maskCurrency, maskPhone, ensureExternalLink, stripHtml } from '@/lib/utils';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
 
 import Link from 'next/link';
 
@@ -292,120 +294,154 @@ const MOCK_CANDIDATES: Candidate[] = [
 
 // --- Components ---
 
-const Sidebar = ({ activeView, setView, isOpen, onClose }: { activeView: View, setView: (v: View) => void, isOpen: boolean, onClose: () => void }) => (
-  <>
-    {/* Mobile Overlay */}
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="fixed inset-0 bg-black/40 z-[60] lg:hidden backdrop-blur-sm"
-        />
-      )}
-    </AnimatePresence>
+const Sidebar = ({ activeView, setView, isOpen, onClose }: { activeView: View, setView: (v: View) => void, isOpen: boolean, onClose: () => void }) => {
+  const router = useRouter();
 
-    <aside className={cn(
-      "w-64 h-screen fixed left-0 top-0 bg-white border-r border-outline-variant/20 flex flex-col py-6 z-[70] transition-transform duration-300 lg:translate-x-0",
-      isOpen ? "translate-x-0" : "-translate-x-full"
-    )}>
-      <div className="flex items-center justify-between px-6 mb-10">
-        <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-on-primary shadow-lg shadow-primary/20 transition-transform hover:scale-105">
-            <Handshake className="w-6 h-6" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-primary leading-none font-headline tracking-tighter">Corrente do Bem</h2>
-            <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-black mt-1">Painel Adm</p>
-          </div>
-        </Link>
-        <button onClick={onClose} className="lg:hidden p-2 text-on-surface-variant hover:text-primary transition-colors">
-          <X className="w-6 h-6" />
-        </button>
-      </div>
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/admin/login');
+  };
 
-      <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
-        {[
-          { id: 'vagas', label: 'Vagas Pendentes', icon: <Clock className="w-5 h-5" /> },
-          { id: 'noticias', label: 'Notícias', icon: <Megaphone className="w-5 h-5" /> },
-          { id: 'curriculos', label: 'Currículos Pendentes', icon: <FileText className="w-5 h-5" /> },
-          { id: 'negocios', label: 'Negócios Pendentes', icon: <TrendingUp className="w-5 h-5" /> },
-          { id: 'depoimentos', label: 'Depoimentos Pendentes', icon: <Quote className="w-5 h-5" /> },
-          { id: 'galeria_vagas', label: 'Galeria de Vagas', icon: <Briefcase className="w-5 h-5" /> },
-          { id: 'galeria', label: 'Galeria de Talentos', icon: <LayoutGrid className="w-5 h-5" /> },
-          { id: 'galeria_negocios', label: 'Galeria de Negócios', icon: <Zap className="w-5 h-5" /> },
-          { id: 'recusados', label: 'Recusados', icon: <XCircle className="w-5 h-5" /> },
-          { id: 'historico', label: 'Histórico', icon: <History className="w-5 h-5" /> },
-          { id: 'contatos', label: 'Mensagens de Contato', icon: <Mail className="w-5 h-5" /> },
-          { id: 'configuracoes', label: 'Configurações', icon: <Settings className="w-5 h-5" /> },
-        ].map((item) => (
-          <button
-            key={item.id}
-            onClick={() => {
-              setView(item.id as View);
-              if (window.innerWidth < 1024) onClose();
-            }}
-            className={cn(
-              "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
-              activeView === item.id 
-                ? "bg-primary/5 text-primary font-bold border-r-4 border-primary" 
-                : "text-on-surface-variant hover:bg-surface-container-low"
-            )}
-          >
-            <span className={cn("transition-transform group-hover:scale-110", activeView === item.id && "text-primary")}>
-              {item.icon}
-            </span>
-            <span className="text-sm">{item.label}</span>
+  return (
+    <>
+      {/* Mobile Overlay */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/40 z-[60] lg:hidden backdrop-blur-sm"
+          />
+        )}
+      </AnimatePresence>
+
+      <aside className={cn(
+        "w-64 h-screen fixed left-0 top-0 bg-white border-r border-outline-variant/20 flex flex-col py-6 z-[70] transition-transform duration-300 lg:translate-x-0",
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <div className="flex items-center justify-between px-6 mb-10">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-on-primary shadow-lg shadow-primary/20 transition-transform hover:scale-105">
+              <Handshake className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-primary leading-none font-headline tracking-tighter">Corrente do Bem</h2>
+              <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-black mt-1">Painel Adm</p>
+            </div>
+          </Link>
+          <button onClick={onClose} className="lg:hidden p-2 text-on-surface-variant hover:text-primary transition-colors">
+            <X className="w-6 h-6" />
           </button>
-        ))}
-      </nav>
+        </div>
 
-      <div className="px-6 mt-auto">
-        <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 text-center">
-          <p className="text-[10px] uppercase tracking-widest text-primary font-bold">Sistema Ativo</p>
+        <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
+          {[
+            { id: 'vagas', label: 'Vagas Pendentes', icon: <Clock className="w-5 h-5" /> },
+            { id: 'noticias', label: 'Notícias', icon: <Megaphone className="w-5 h-5" /> },
+            { id: 'curriculos', label: 'Currículos Pendentes', icon: <FileText className="w-5 h-5" /> },
+            { id: 'negocios', label: 'Negócios Pendentes', icon: <TrendingUp className="w-5 h-5" /> },
+            { id: 'depoimentos', label: 'Depoimentos Pendentes', icon: <Quote className="w-5 h-5" /> },
+            { id: 'galeria_vagas', label: 'Galeria de Vagas', icon: <Briefcase className="w-5 h-5" /> },
+            { id: 'galeria', label: 'Galeria de Talentos', icon: <LayoutGrid className="w-5 h-5" /> },
+            { id: 'galeria_negocios', label: 'Galeria de Negócios', icon: <Zap className="w-5 h-5" /> },
+            { id: 'recusados', label: 'Recusados', icon: <XCircle className="w-5 h-5" /> },
+            { id: 'historico', label: 'Histórico', icon: <History className="w-5 h-5" /> },
+            { id: 'contatos', label: 'Mensagens de Contato', icon: <Mail className="w-5 h-5" /> },
+            { id: 'configuracoes', label: 'Configurações', icon: <Settings className="w-5 h-5" /> },
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => {
+                setView(item.id as View);
+                if (window.innerWidth < 1024) onClose();
+              }}
+              className={cn(
+                "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
+                activeView === item.id 
+                  ? "bg-primary/5 text-primary font-bold border-r-4 border-primary" 
+                  : "text-on-surface-variant hover:bg-surface-container-low"
+              )}
+            >
+              <span className={cn("transition-transform group-hover:scale-110", activeView === item.id && "text-primary")}>
+                {item.icon}
+              </span>
+              <span className="text-sm">{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div className="px-6 mt-auto space-y-2">
+          <button 
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-error hover:bg-error/10"
+          >
+            <LogOut className="w-5 h-5" />
+            <span className="text-sm font-bold">Sair do Sistema</span>
+          </button>
+          <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 text-center">
+            <p className="text-[10px] uppercase tracking-widest text-primary font-bold">Sistema Ativo</p>
+          </div>
+        </div>
+      </aside>
+    </>
+  );
+};
+
+const Header = ({ onMenuOpen }: { onMenuOpen: () => void }) => {
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/admin/login');
+  };
+
+  return (
+    <header className="fixed top-0 right-0 w-full lg:w-[calc(100%-16rem)] h-16 z-40 bg-white/80 backdrop-blur-md border-b border-outline-variant/10 flex justify-between items-center px-4 lg:px-8">
+      <div className="flex items-center gap-4 w-full max-w-md">
+        <button 
+          onClick={onMenuOpen}
+          className="lg:hidden p-2 text-on-surface-variant hover:text-primary transition-colors rounded-full hover:bg-surface-container-low"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+        <div className="relative w-full hidden sm:block">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-outline w-4 h-4" />
+          <input 
+            type="text" 
+            placeholder="Buscar vagas ou empresas..." 
+            className="w-full pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-full text-sm focus:ring-2 focus:ring-primary/20 transition-all"
+          />
         </div>
       </div>
-    </aside>
-  </>
-);
-
-const Header = ({ onMenuOpen }: { onMenuOpen: () => void }) => (
-  <header className="fixed top-0 right-0 w-full lg:w-[calc(100%-16rem)] h-16 z-40 bg-white/80 backdrop-blur-md border-b border-outline-variant/10 flex justify-between items-center px-4 lg:px-8">
-    <div className="flex items-center gap-4 w-full max-w-md">
-      <button 
-        onClick={onMenuOpen}
-        className="lg:hidden p-2 text-on-surface-variant hover:text-primary transition-colors rounded-full hover:bg-surface-container-low"
-      >
-        <Menu className="w-6 h-6" />
-      </button>
-      <div className="relative w-full hidden sm:block">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-outline w-4 h-4" />
-        <input 
-          type="text" 
-          placeholder="Buscar vagas ou empresas..." 
-          className="w-full pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-full text-sm focus:ring-2 focus:ring-primary/20 transition-all"
-        />
+      <div className="flex items-center gap-2 lg:gap-6">
+        <button className="relative p-2 text-on-surface-variant hover:text-primary transition-colors rounded-full hover:bg-surface-container-low">
+          <Bell className="w-5 h-5" />
+          <span className="absolute top-2 right-2 w-2 h-2 bg-secondary rounded-full border-2 border-white"></span>
+        </button>
+        <div className="hidden sm:block h-8 w-[1px] bg-outline-variant/30"></div>
+        <button 
+          onClick={handleLogout}
+          className="flex items-center gap-2 px-3 lg:px-4 py-2 rounded-full hover:bg-error/10 text-on-surface-variant hover:text-error transition-all group"
+        >
+          <span className="text-xs lg:text-sm font-semibold">Sair</span>
+          <LogOut className="w-4 h-4 lg:w-5 lg:h-5 transition-transform duration-300" />
+        </button>
+        <Link href="/" className="flex items-center gap-2 px-3 lg:px-4 py-2 rounded-full hover:bg-surface-container-low transition-all group">
+          <span className="text-xs lg:text-sm font-semibold text-primary">Site</span>
+          <ExternalLink className="w-4 h-4 lg:w-5 lg:h-5 text-primary group-hover:translate-x-1 transition-transform duration-300" />
+        </Link>
       </div>
-    </div>
-    <div className="flex items-center gap-2 lg:gap-6">
-      <button className="relative p-2 text-on-surface-variant hover:text-primary transition-colors rounded-full hover:bg-surface-container-low">
-        <Bell className="w-5 h-5" />
-        <span className="absolute top-2 right-2 w-2 h-2 bg-secondary rounded-full border-2 border-white"></span>
-      </button>
-      <div className="hidden sm:block h-8 w-[1px] bg-outline-variant/30"></div>
-      <Link href="/" className="flex items-center gap-2 px-3 lg:px-4 py-2 rounded-full hover:bg-surface-container-low transition-all group">
-        <span className="text-xs lg:text-sm font-semibold text-primary">Site</span>
-        <ExternalLink className="w-4 h-4 lg:w-5 lg:h-5 text-primary group-hover:translate-x-1 transition-transform duration-300" />
-      </Link>
-    </div>
-  </header>
-);
+    </header>
+  );
+};
 
 export default function Dashboard() {
+  const router = useRouter();
   const [activeView, setView] = useState<View>('vagas');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [negocios, setNegocios] = useState<Negocio[]>([]);
@@ -550,13 +586,21 @@ export default function Dashboard() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/admin/login');
+      } else {
+        setIsAuthChecking(false);
+        fetchData();
+      }
+    };
+    checkAuth();
+  }, [router, fetchData]);
 
-  // CRUD Actions
   const approveJob = React.useCallback(async (id: string | number) => {
     const job = jobs.find(j => String(j.id) === String(id));
     if (!job) return;
@@ -1121,6 +1165,17 @@ export default function Dashboard() {
       triggerToast('Erro ao salvar configurações.', 'error');
     }
   }, [settings.id]);
+
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen bg-[#fcf9f8] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-12 h-12 text-primary animate-spin" />
+          <p className="text-sm font-black text-primary uppercase tracking-widest animate-pulse">Verificando Credenciais...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex">
